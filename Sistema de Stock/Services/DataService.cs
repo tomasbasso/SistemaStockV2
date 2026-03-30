@@ -373,6 +373,7 @@ namespace Sistema_de_Stock.Services
                 existing.Address = c.Address;
                 existing.CUIT = c.CUIT;
                 existing.Email = c.Email;
+                existing.CondicionIva = c.CondicionIva;
             }
             await _db.SaveChangesAsync();
         }

@@ -172,17 +172,12 @@
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1">Condición IVA *</label>
-                <InputSelect @bind-Value="editingItem.CondicionIva" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]">
-                    <option value="">Selecciona condición</option>
-                    <option value="@CondicionIva.ResponsableInscripto">Responsable Inscripto</option>
-                    <option value="@CondicionIva.Monotributista">Monotributista</option>
-                    <option value="@CondicionIva.MonotributoSocial">Monotributo Social</option>
-                    <option value="@CondicionIva.Exento">Exento</option>
-                    <option value="@CondicionIva.ConsumidorFinal">Consumidor Final</option>
-                    <option value="@CondicionIva.NoResponsable">No Responsable</option>
-                    <option value="@CondicionIva.SujetoNoCategorizado">Sujeto no categorizado</option>
+                <InputSelect @bind-Value="editingCondicion" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]">
+                    @foreach (CondicionIva c in Enum.GetValues(typeof(CondicionIva)))
+                    {
+                        <option value="@c.ToString()">@GetCondicionLabel(c)</option>
+                    }
                 </InputSelect>
-                <ValidationMessage For="() => editingItem.CondicionIva" class="text-[var(--color-danger)] text-xs mt-1 block" />
             </div>
         </div>
         <div class="mt-8 flex justify-end gap-3">
@@ -292,6 +287,7 @@
     private bool isModalOpen = false;
     private bool isEditMode = false;
     private Cliente editingItem = new();
+    private string editingCondicion = CondicionIva.ConsumidorFinal.ToString();
 
     // Confirmación eliminar
     private bool isConfirmDeleteOpen = false;
@@ -338,6 +334,7 @@
     private void OpenNew()
     {
         editingItem = new Cliente { CondicionIva = CondicionIva.ConsumidorFinal };
+        editingCondicion = editingItem.CondicionIva.ToString();
         isEditMode = false;
         isModalOpen = true;
     }
@@ -354,6 +351,7 @@
             Email = item.Email,
             CondicionIva = item.CondicionIva
         };
+        editingCondicion = editingItem.CondicionIva.ToString();
         isEditMode = true;
         isModalOpen = true;
     }
@@ -362,6 +360,11 @@
     {
         try
         {
+            // forzamos la conversión desde el select (string) al enum antes de guardar
+            if (!Enum.TryParse<CondicionIva>(editingCondicion, out var parsed))
+                parsed = CondicionIva.ConsumidorFinal;
+            editingItem.CondicionIva = parsed;
+
             await Data.SaveClienteAsync(editingItem);
             var msg = isEditMode ? "Cliente actualizado." : "Cliente creado con éxito.";
             Notifications.Success(msg);
