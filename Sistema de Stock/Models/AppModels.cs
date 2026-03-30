@@ -36,12 +36,15 @@ namespace Sistema_de_Stock.Models
         [Range(0, int.MaxValue, ErrorMessage = "El stock mínimo no puede ser negativo.")]
         public int StockMinimo { get; set; } = 0;
 
-        [Required]
+       [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor a cero.")]
         public decimal Price { get; set; } = 0;
 
         [Range(0, double.MaxValue, ErrorMessage = "El precio de costo no puede ser negativo.")]
         public decimal PrecioCosto { get; set; } = 0;
+
+        [Range(0, double.MaxValue, ErrorMessage = "El margen no puede ser negativo.")]
+        public decimal Margen { get; set; } = 0;
 
         [Required(ErrorMessage = "La unidad de medida es obligatoria.")]
         [MaxLength(20, ErrorMessage = "La unidad de medida no puede superar 20 caracteres.")]
@@ -75,6 +78,9 @@ namespace Sistema_de_Stock.Models
         [MaxLength(200, ErrorMessage = "El email no puede superar 200 caracteres.")]
         [RegularExpression(@"^$|^\S+@\S+\.\S+$", ErrorMessage = "El email no es válido.")]
         public string? Email { get; set; }
+
+        [Required]
+        public CondicionIva CondicionIva { get; set; } = CondicionIva.ConsumidorFinal;
 
         public bool IsDeleted { get; set; } = false;
     }
@@ -236,5 +242,16 @@ namespace Sistema_de_Stock.Models
         public string Tendencia { get; set; } = "→";
         public string EstadoRotacion { get; set; } = "Sin rotación";
         public string AccionSugerida { get; set; } = "";
+    }
+
+    public enum CondicionIva
+    {
+        ResponsableInscripto,
+        Monotributista,
+        MonotributoSocial,
+        Exento,
+        ConsumidorFinal,
+        NoResponsable,
+        SujetoNoCategorizado
     }
 }

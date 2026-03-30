@@ -76,7 +76,7 @@
                         @foreach (var item in PaginatedItems)
                         {
                             <tr class="hover:bg-white/5 transition-colors group">
-                                <td class="px-6 py-4 text-sm font-mono text-gray-400">@(string.IsNullOrEmpty(item.SKU) ? "-" : item.SKU)</td>
+                                <td class="px-6 py-4 text-sm font-bold text-white">@(string.IsNullOrEmpty(item.SKU) ? "-" : item.SKU)</td>
                                 <td class="px-6 py-4">
                                     <div class="font-medium text-white">@item.Name</div>
                                 </td>
@@ -177,16 +177,24 @@
                 <ValidationMessage For="() => editingItem.CategoryId" class="text-[var(--color-danger)] text-xs mt-1 block" />
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">Precio *</label>
-                <InputNumber @bind-Value="editingItem.Price" step="0.01" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
-                <ValidationMessage For="() => editingItem.Price" class="text-[var(--color-danger)] text-xs mt-1 block" />
-            </div>
+           <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 bg-black/20 border border-white/5 rounded-xl p-4 mb-2">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Costo ($)</label>
+                    <InputNumber @bind-Value="editingItem.PrecioCosto" @bind-Value:after="CalcularDesdeCostoOMargen" step="0.01" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)]" />
+                    <ValidationMessage For="() => editingItem.PrecioCosto" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">Precio de Costo</label>
-                <InputNumber @bind-Value="editingItem.PrecioCosto" step="0.01" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
-                <ValidationMessage For="() => editingItem.PrecioCosto" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                <div>
+                    <label class="block text-sm font-medium text-[var(--color-secondary)] mb-1">Margen (%)</label>
+                    <InputNumber @bind-Value="editingItem.Margen" @bind-Value:after="CalcularDesdeCostoOMargen" step="0.1" class="w-full bg-black/40 border border-[var(--color-secondary)]/30 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-secondary)]" />
+                    <ValidationMessage For="() => editingItem.Margen" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-[var(--color-primary)] mb-1">Precio Venta ($)</label>
+                    <InputNumber @bind-Value="editingItem.Price" @bind-Value:after="CalcularDesdePrecioVenta" step="0.01" class="w-full bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/50 rounded-xl px-4 py-2 text-white font-bold focus:outline-none focus:border-[var(--color-primary)]" />
+                    <ValidationMessage For="() => editingItem.Price" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                </div>
             </div>
 
             <div>
@@ -685,6 +693,7 @@
             CategoryId = item.CategoryId, 
             Price = item.Price, 
             PrecioCosto = item.PrecioCosto,
+            Margen = item.Margen, // <- AGREGA ESTA LÍNEA
             Stock = item.Stock, 
             StockMinimo = item.StockMinimo,
             UnidadMedida = item.UnidadMedida,
@@ -692,6 +701,27 @@
         };
         isEditMode = true;
         isModalOpen = true;
+    }
+    private void CalcularDesdeCostoOMargen()
+    {
+        if (editingItem.PrecioCosto >= 0 && editingItem.Margen >= 0)
+        {
+            editingItem.Price = editingItem.PrecioCosto * (1 + (editingItem.Margen / 100m));
+            editingItem.Price = Math.Round(editingItem.Price, 2);
+        }
+    }
+
+    private void CalcularDesdePrecioVenta()
+    {
+        if (editingItem.PrecioCosto > 0)
+        {
+            editingItem.Margen = ((editingItem.Price / editingItem.PrecioCosto) - 1) * 100m;
+            editingItem.Margen = Math.Round(editingItem.Margen, 2);
+        }
+        else if (editingItem.Price > 0)
+        {
+            editingItem.Margen = 100m;
+        }
     }
 
     private async Task Save()

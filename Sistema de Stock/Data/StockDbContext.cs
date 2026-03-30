@@ -56,6 +56,7 @@ namespace Sistema_de_Stock.Data
                 entity.Property(e => e.SKU).IsRequired().HasMaxLength(50);
                 entity.HasIndex(e => e.SKU).IsUnique();
                 entity.Property(e => e.Price).HasColumnType("TEXT"); // SQLite stores decimals as TEXT
+                entity.Property(e => e.Margen).HasColumnType("TEXT");
                 entity.Property(e => e.CategoryId).IsRequired();
             });
 
@@ -68,6 +69,10 @@ namespace Sistema_de_Stock.Data
                 entity.Property(e => e.Address).HasMaxLength(300);
                 entity.Property(e => e.CUIT).HasMaxLength(13);
                 entity.Property(e => e.Email).HasMaxLength(200);
+                entity.Property(e => e.CondicionIva)
+                      .HasConversion<string>()
+                      .HasColumnType("TEXT")
+                      .HasDefaultValue(CondicionIva.ConsumidorFinal);
             });
 
             // --- Cuentas Corrientes ---
@@ -305,16 +310,28 @@ namespace Sistema_de_Stock.Data
                     command.CommandText = "ALTER TABLE Productos ADD COLUMN PrecioCosto TEXT NOT NULL DEFAULT '0';";
                     await command.ExecuteNonQueryAsync();
                 }
-
+                // ── Margen: Productos ───────────────────────────────────
+                command.CommandText = "PRAGMA table_info(Productos);";
+                bool hasMargen = false;
+                using (var r = await command.ExecuteReaderAsync())
+                    while (await r.ReadAsync())
+                        if (string.Equals(r.GetString(1), "Margen", StringComparison.OrdinalIgnoreCase))
+                        { hasMargen = true; break; }
+                if (!hasMargen)
+                {
+                    command.CommandText = "ALTER TABLE Productos ADD COLUMN Margen TEXT NOT NULL DEFAULT '0';";
+                    await command.ExecuteNonQueryAsync();
+                }
                 // ── CUIT y Email: Clientes ───────────────────────────────────
                 command.CommandText = "PRAGMA table_info(Clientes);";
-                bool hasCUITClientes = false, hasEmailClientes = false;
+                bool hasCUITClientes = false, hasEmailClientes = false, hasCondicionIva = false;
                 using (var r = await command.ExecuteReaderAsync())
                     while (await r.ReadAsync())
                     {
                         var col = r.GetString(1);
                         if (string.Equals(col, "CUIT", StringComparison.OrdinalIgnoreCase)) hasCUITClientes = true;
                         if (string.Equals(col, "Email", StringComparison.OrdinalIgnoreCase)) hasEmailClientes = true;
+                        if (string.Equals(col, "CondicionIva", StringComparison.OrdinalIgnoreCase)) hasCondicionIva = true;
                     }
                 if (!hasCUITClientes)
                 {
@@ -324,6 +341,11 @@ namespace Sistema_de_Stock.Data
                 if (!hasEmailClientes)
                 {
                     command.CommandText = "ALTER TABLE Clientes ADD COLUMN Email TEXT NOT NULL DEFAULT '';";
+                    await command.ExecuteNonQueryAsync();
+                }
+                if (!hasCondicionIva)
+                {
+                    command.CommandText = "ALTER TABLE Clientes ADD COLUMN CondicionIva TEXT NOT NULL DEFAULT 'ConsumidorFinal';";
                     await command.ExecuteNonQueryAsync();
                 }
 

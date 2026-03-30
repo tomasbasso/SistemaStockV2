@@ -103,6 +103,9 @@
                             <i class="bi bi-envelope mr-1"></i> @item.Email
                         </div>
                     }
+                    <div class="mt-1 text-sm text-gray-400">
+                        <i class="bi bi-award mr-1"></i> Cond. IVA: @GetCondicionLabel(item.CondicionIva)
+                    </div>
                     
                     <div class="flex justify-end mt-4 pt-4 border-t border-white/5 gap-2 flex-wrap">
                         <button @onclick="() => OpenDetail(item, cc)" class="px-4 py-2 rounded-lg bg-[var(--color-primary)] hover:brightness-110 text-white text-sm transition-colors flex items-center gap-2">
@@ -166,6 +169,20 @@
                 <label class="block text-sm font-medium text-gray-300 mb-1">Email <span class="text-gray-500 font-normal">(Opcional)</span></label>
                 <InputText @bind-Value="editingItem.Email" type="email" placeholder="cliente@ejemplo.com" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
                 <ValidationMessage For="() => editingItem.Email" class="text-[var(--color-danger)] text-xs mt-1 block" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Condición IVA *</label>
+                <InputSelect @bind-Value="editingItem.CondicionIva" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]">
+                    <option value="">Selecciona condición</option>
+                    <option value="@CondicionIva.ResponsableInscripto">Responsable Inscripto</option>
+                    <option value="@CondicionIva.Monotributista">Monotributista</option>
+                    <option value="@CondicionIva.MonotributoSocial">Monotributo Social</option>
+                    <option value="@CondicionIva.Exento">Exento</option>
+                    <option value="@CondicionIva.ConsumidorFinal">Consumidor Final</option>
+                    <option value="@CondicionIva.NoResponsable">No Responsable</option>
+                    <option value="@CondicionIva.SujetoNoCategorizado">Sujeto no categorizado</option>
+                </InputSelect>
+                <ValidationMessage For="() => editingItem.CondicionIva" class="text-[var(--color-danger)] text-xs mt-1 block" />
             </div>
         </div>
         <div class="mt-8 flex justify-end gap-3">
@@ -320,14 +337,23 @@
 
     private void OpenNew()
     {
-        editingItem = new Cliente();
+        editingItem = new Cliente { CondicionIva = CondicionIva.ConsumidorFinal };
         isEditMode = false;
         isModalOpen = true;
     }
 
     private void OpenEdit(Cliente item)
     {
-        editingItem = new Cliente { Id = item.Id, Name = item.Name, Phone = item.Phone, Address = item.Address, CUIT = item.CUIT, Email = item.Email };
+        editingItem = new Cliente
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Phone = item.Phone,
+            Address = item.Address,
+            CUIT = item.CUIT,
+            Email = item.Email,
+            CondicionIva = item.CondicionIva
+        };
         isEditMode = true;
         isModalOpen = true;
     }
@@ -453,4 +479,16 @@
             Notifications.Error($"Error al exportar PDF: {ex.Message}");
         }
     }
+
+    private string GetCondicionLabel(CondicionIva condicion) => condicion switch
+    {
+        CondicionIva.ResponsableInscripto => "Responsable Inscripto",
+        CondicionIva.Monotributista => "Monotributista",
+        CondicionIva.MonotributoSocial => "Monotributo Social",
+        CondicionIva.Exento => "Exento",
+        CondicionIva.ConsumidorFinal => "Consumidor Final",
+        CondicionIva.NoResponsable => "No Responsable",
+        CondicionIva.SujetoNoCategorizado => "Sujeto no categorizado",
+        _ => "Consumidor Final"
+    };
 }

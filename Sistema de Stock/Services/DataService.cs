@@ -159,6 +159,7 @@ namespace Sistema_de_Stock.Services
                 existing.StockMinimo = p.StockMinimo;
                 existing.Price = p.Price;
                 existing.PrecioCosto = p.PrecioCosto;
+                existing.Margen = p.Margen;
                 existing.UnidadMedida = p.UnidadMedida;
                 existing.Ubicacion = p.Ubicacion;
 
@@ -239,6 +240,12 @@ namespace Sistema_de_Stock.Services
                         existing.Name = nombre;
                         var precioAnterior = existing.Price;
                         existing.Price = precio;
+                        
+                        // Recalcular margen hacia atrás basado en el costo actual
+                        existing.Margen = existing.PrecioCosto > 0 
+                            ? Math.Round(((precio / existing.PrecioCosto) - 1) * 100m, 2) 
+                            : 100m;
+
                         if (precioAnterior != existing.Price)
                             RegistrarHistorialPrecio(existing, precioAnterior, existing.Price);
                         actualizados++;
@@ -250,6 +257,8 @@ namespace Sistema_de_Stock.Services
                             Name = nombre,
                             SKU = sku,
                             Price = precio,
+                            PrecioCosto = 0,
+                            Margen = 100m, // Margen del 100% por defecto si no hay costo
                             CategoryId = categoriaDefaultId,
                             Stock = 5,
                             StockMinimo = 0,
