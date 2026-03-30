@@ -170,15 +170,17 @@
                 <InputText @bind-Value="editingItem.Email" type="email" placeholder="cliente@ejemplo.com" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
                 <ValidationMessage For="() => editingItem.Email" class="text-[var(--color-danger)] text-xs mt-1 block" />
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">Condición IVA *</label>
-                <InputSelect @bind-Value="editingCondicion" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]">
-                    @foreach (CondicionIva c in Enum.GetValues(typeof(CondicionIva)))
-                    {
-                        <option value="@c.ToString()">@GetCondicionLabel(c)</option>
-                    }
-                </InputSelect>
-            </div>
+   <div>
+    <label class="block text-sm font-medium text-gray-300 mb-1">Condición IVA *</label>
+    <select value="@((int)editingItem.CondicionIva)"
+            @onchange="e => { if (int.TryParse(e.Value?.ToString(), out int v)) { editingItem.CondicionIva = (CondicionIva)v; StateHasChanged(); } }"
+            class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]">
+        @foreach (CondicionIva c in Enum.GetValues(typeof(CondicionIva)))
+        {
+            <option value="@((int)c)">@GetCondicionLabel(c)</option>
+        }
+    </select>
+</div>
         </div>
         <div class="mt-8 flex justify-end gap-3">
             <button type="button" @onclick="() => isModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cancelar</button>
@@ -356,26 +358,21 @@
         isModalOpen = true;
     }
 
-    private async Task Save()
+ private async Task Save()
+{
+    try
     {
-        try
-        {
-            // forzamos la conversión desde el select (string) al enum antes de guardar
-            if (!Enum.TryParse<CondicionIva>(editingCondicion, out var parsed))
-                parsed = CondicionIva.ConsumidorFinal;
-            editingItem.CondicionIva = parsed;
-
-            await Data.SaveClienteAsync(editingItem);
-            var msg = isEditMode ? "Cliente actualizado." : "Cliente creado con éxito.";
-            Notifications.Success(msg);
-            isModalOpen = false;
-            await LoadData();
-        }
-        catch (Exception ex)
-        {
-            Notifications.Error($"Error al guardar cliente: {ex.Message}");
-        }
+        await Data.SaveClienteAsync(editingItem);
+        var msg = isEditMode ? "Cliente actualizado." : "Cliente creado con éxito.";
+        Notifications.Success(msg);
+        isModalOpen = false;
+        await LoadData();
     }
+    catch (Exception ex)
+    {
+        Notifications.Error($"Error al guardar cliente: {ex.Message}");
+    }
+}
     
     // Custom CC logic
     private void OpenSettleDebt(Cliente c, CuentaCorriente cc)
@@ -485,8 +482,9 @@
 
     private string GetCondicionLabel(CondicionIva condicion) => condicion switch
     {
-        CondicionIva.ResponsableInscripto => "Responsable Inscripto",
+        
         CondicionIva.Monotributista => "Monotributista",
+        CondicionIva.ResponsableInscripto => "Responsable Inscripto",
         CondicionIva.MonotributoSocial => "Monotributo Social",
         CondicionIva.Exento => "Exento",
         CondicionIva.ConsumidorFinal => "Consumidor Final",

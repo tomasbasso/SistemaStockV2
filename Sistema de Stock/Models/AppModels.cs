@@ -245,13 +245,13 @@ namespace Sistema_de_Stock.Models
     }
 
     public enum CondicionIva
-    {
-        ResponsableInscripto,
-        Monotributista,
-        MonotributoSocial,
-        Exento,
-        ConsumidorFinal,
-        NoResponsable,
-        SujetoNoCategorizado
-    }
+{
+    ResponsableInscripto = 0,
+    Monotributista = 1,
+    MonotributoSocial = 2,
+    Exento = 3,
+    ConsumidorFinal = 4,
+    NoResponsable = 5,
+    SujetoNoCategorizado = 6
+}
 }

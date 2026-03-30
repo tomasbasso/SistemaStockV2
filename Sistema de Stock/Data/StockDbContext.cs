@@ -70,9 +70,10 @@ namespace Sistema_de_Stock.Data
                 entity.Property(e => e.CUIT).HasMaxLength(13);
                 entity.Property(e => e.Email).HasMaxLength(200);
                 entity.Property(e => e.CondicionIva)
-                      .HasConversion<string>()
-                      .HasColumnType("TEXT")
-                      .HasDefaultValue(CondicionIva.ConsumidorFinal);
+                .HasConversion<string>()
+                .HasColumnType("TEXT")
+                .HasDefaultValue(CondicionIva.ConsumidorFinal)
+                .ValueGeneratedNever();
             });
 
             // --- Cuentas Corrientes ---
