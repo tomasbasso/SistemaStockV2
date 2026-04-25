@@ -54,6 +54,7 @@ window.barcodeScanner = {
             );
 
             isScanning = true;
+            await dotNetHelper.invokeMethodAsync('OnScannerStarted');
         } catch (err) {
             let msg = err.toString();
             if (msg.includes('Permission') || msg.includes('permission') || msg.includes('NotAllowed')) {
