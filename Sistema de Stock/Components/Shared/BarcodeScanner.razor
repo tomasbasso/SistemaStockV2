@@ -1,0 +1,91 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="relative w-full">
+    @if (_error != null)
+    {
+        <div class="flex flex-col items-center justify-center gap-4 p-8 bg-black/30 rounded-2xl border border-white/10 text-center">
+            <div class="w-16 h-16 rounded-full bg-[var(--color-danger)]/20 flex items-center justify-center">
+                <i class="bi bi-camera-video-off text-[var(--color-danger)] text-2xl"></i>
+            </div>
+            <div>
+                <p class="text-white font-medium mb-1">Error al iniciar la cámara</p>
+                <p class="text-sm text-gray-400">@_error</p>
+            </div>
+            <button @onclick="StartScanner" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm transition-colors">
+                <i class="bi bi-arrow-repeat mr-2"></i>Reintentar
+            </button>
+        </div>
+    }
+    else if (!_started)
+    {
+        <div class="flex flex-col items-center justify-center gap-4 p-8 bg-black/30 rounded-2xl border border-white/10 text-center">
+            <div class="w-16 h-16 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center animate-pulse">
+                <i class="bi bi-camera text-[var(--color-primary)] text-2xl"></i>
+            </div>
+            <p class="text-gray-400 text-sm">Iniciando cámara...</p>
+        </div>
+    }
+
+    <!-- Contenedor de la cámara — siempre en el DOM para que html5-qrcode pueda montarse -->
+    <div id="@_elementId" class="@(_started && _error == null ? "block" : "hidden") rounded-2xl overflow-hidden"></div>
+</div>
+
+@code {
+    [Parameter] public EventCallback<string> OnScanned { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    private string _elementId = $"qr-scanner-{Guid.NewGuid():N}";
+    private DotNetObjectReference<BarcodeScanner>? _dotNetRef;
+    private bool _started = false;
+    private string? _error = null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await StartScanner();
+        }
+    }
+
+    private async Task StartScanner()
+    {
+        _error = null;
+        _started = false;
+        StateHasChanged();
+
+        // Pequeña pausa para que el DOM se actualice antes de que html5-qrcode monte
+        await Task.Delay(100);
+
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("barcodeScanner.start", _elementId, _dotNetRef);
+    }
+
+    [JSInvokable]
+    public async Task OnBarcodeScanned(string barcode)
+    {
+        _started = true;
+        StateHasChanged();
+        await OnScanned.InvokeAsync(barcode);
+    }
+
+    [JSInvokable]
+    public async Task OnScannerError(string error)
+    {
+        _error = error;
+        _started = false;
+        StateHasChanged();
+        await OnError.InvokeAsync(error);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("barcodeScanner.stop");
+        }
+        catch { }
+        _dotNetRef?.Dispose();
+    }
+}

@@ -22,10 +22,10 @@
         <Nullable>enable</Nullable>
 
         <!-- Display name -->
-        <ApplicationTitle>Sistema de Stock</ApplicationTitle>
+        <ApplicationTitle>Sistema de Stock Retail</ApplicationTitle>
 
         <!-- App Identifier -->
-        <ApplicationId>com.companyname.sistemadestock</ApplicationId>
+        <ApplicationId>com.ud.sistemadestock.retail</ApplicationId>
 
         <!-- Versions -->
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>

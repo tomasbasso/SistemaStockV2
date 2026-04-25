@@ -1,0 +1,498 @@
+@page "/scanner"
+@using Sistema_de_Stock.Models
+@using Sistema_de_Stock.Services
+@using Sistema_de_Stock.Components.Shared
+@inject DataService Data
+@inject NotificationService Notifications
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<div class="max-w-3xl mx-auto">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8 gap-4">
+        <div>
+            <h2 class="page-title mb-1">Lector de Códigos</h2>
+            <p class="page-subtitle">Escaneá para buscar, vincular o crear productos</p>
+        </div>
+        @if (_modo != Modo.Escaneando)
+        {
+            <button @onclick="Reiniciar" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm transition-colors">
+                <i class="bi bi-camera-fill"></i>
+                <span>Escanear otro</span>
+            </button>
+        }
+    </div>
+
+    <!-- ─── MODO: ESCANEANDO ─────────────────────────────── -->
+    @if (_modo == Modo.Escaneando)
+    {
+        <div class="premium-card overflow-hidden">
+            <div class="p-5 border-b border-white/5 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-[var(--color-primary)]/20 flex items-center justify-center">
+                    <i class="bi bi-upc-scan text-[var(--color-primary)]"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-white">Apuntá la cámara al código de barras</p>
+                    <p class="text-xs text-gray-500">Soporta EAN-13, EAN-8, Code-128, QR y más</p>
+                </div>
+            </div>
+
+            <div class="p-4">
+                <BarcodeScanner OnScanned="OnCodigoEscaneado" OnError="OnErrorCamara" />
+            </div>
+
+            <!-- Input manual como fallback -->
+            <div class="px-5 pb-5">
+                <div class="flex items-center gap-3 mt-2">
+                    <div class="h-px flex-1 bg-white/10"></div>
+                    <span class="text-xs text-gray-600">o ingresá manualmente</span>
+                    <div class="h-px flex-1 bg-white/10"></div>
+                </div>
+                <div class="flex gap-2 mt-3">
+                    <input @bind="_codigoManual" @bind:event="oninput" @onkeydown="OnKeyDown"
+                           placeholder="Código de barras..."
+                           class="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--color-primary)] transition-all" />
+                    <button @onclick="BuscarManual" disabled="@string.IsNullOrWhiteSpace(_codigoManual)"
+                            class="px-4 py-2.5 rounded-xl bg-[var(--color-primary)] hover:brightness-110 text-white text-sm transition-all disabled:opacity-50">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- ─── MODO: PRODUCTO ENCONTRADO ────────────────────── -->
+    @if (_modo == Modo.Encontrado && _productoEncontrado != null)
+    {
+        <div class="space-y-4 animate-fade-in">
+
+            <!-- Badge código -->
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+                <i class="bi bi-upc text-[var(--color-primary)]"></i>
+                <span class="font-mono">@_ultimoCodigo</span>
+            </div>
+
+            <!-- Card del producto -->
+            <div class="premium-card p-6">
+                <div class="flex items-start justify-between mb-6">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-mono text-gray-500">@_productoEncontrado.SKU</span>
+                            @{
+                                string badgeClass = _productoEncontrado.Stock <= 0
+                                    ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]"
+                                    : _productoEncontrado.Stock <= _productoEncontrado.StockMinimo
+                                        ? "bg-[var(--color-warning)]/20 text-[var(--color-warning)]"
+                                        : "bg-[var(--color-success)]/20 text-[var(--color-success)]";
+                            }
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold @badgeClass">
+                                @(_productoEncontrado.Stock <= 0 ? "Sin stock" : $"{_productoEncontrado.Stock} {_productoEncontrado.UnidadMedida}")
+                            </span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-white">@_productoEncontrado.Name</h3>
+                        <p class="text-sm text-gray-400 mt-1">@_categoriaNombre</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Precio</p>
+                        <p class="text-3xl font-bold text-[var(--color-secondary)]">@_productoEncontrado.Price.ToString("C")</p>
+                        @if (_productoEncontrado.PrecioCosto > 0)
+                        {
+                            <p class="text-xs text-gray-500 mt-1">Costo: @_productoEncontrado.PrecioCosto.ToString("C")</p>
+                        }
+                    </div>
+                </div>
+
+                <!-- Info adicional -->
+                <div class="grid grid-cols-2 gap-4 p-4 bg-black/20 rounded-xl border border-white/5">
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Stock mínimo</p>
+                        <p class="text-white font-medium">@_productoEncontrado.StockMinimo @_productoEncontrado.UnidadMedida</p>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_productoEncontrado.Ubicacion))
+                    {
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Ubicación</p>
+                            <p class="text-white font-medium">@_productoEncontrado.Ubicacion</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="grid grid-cols-2 gap-3">
+                <button @onclick="AgregarAlCarritoYVolver"
+                        class="flex items-center justify-center gap-2 py-3.5 px-5 rounded-xl bg-[var(--color-primary)] hover:brightness-110 text-white font-medium transition-all shadow-lg">
+                    <i class="bi bi-cart-plus-fill"></i>
+                    <span>Agregar al POS</span>
+                </button>
+                <button @onclick="IrAEditar"
+                        class="flex items-center justify-center gap-2 py-3.5 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium transition-all">
+                    <i class="bi bi-pencil"></i>
+                    <span>Editar producto</span>
+                </button>
+            </div>
+        </div>
+    }
+
+    <!-- ─── MODO: NO ENCONTRADO ───────────────────────────── -->
+    @if (_modo == Modo.NoEncontrado)
+    {
+        <div class="space-y-4 animate-fade-in">
+
+            <!-- Badge código -->
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+                <i class="bi bi-upc text-[var(--color-warning)]"></i>
+                <span class="font-mono">@_ultimoCodigo</span>
+            </div>
+
+            <!-- Aviso -->
+            <div class="premium-card p-6 text-center">
+                <div class="w-16 h-16 rounded-full bg-[var(--color-warning)]/10 flex items-center justify-center mx-auto mb-4">
+                    <i class="bi bi-question-circle text-[var(--color-warning)] text-3xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-white mb-2">Código no registrado</h3>
+                <p class="text-sm text-gray-400">No existe ningún producto con este código de barras. ¿Qué querés hacer?</p>
+            </div>
+
+            <!-- Opciones -->
+            <div class="grid grid-cols-1 gap-3">
+
+                <!-- Opción 1: Asignar a existente -->
+                <button @onclick="() => _modo = Modo.AsignarExistente"
+                        class="flex items-center gap-4 p-5 rounded-2xl bg-[var(--color-card)] border border-white/5 hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 transition-all text-left group">
+                    <div class="w-12 h-12 rounded-xl bg-[var(--color-primary)]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-primary)]/30 transition-colors">
+                        <i class="bi bi-link-45deg text-[var(--color-primary)] text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-white font-medium">Asignar a producto existente</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Buscá un producto por nombre y vinculate el código</p>
+                    </div>
+                    <i class="bi bi-chevron-right text-gray-600 ml-auto group-hover:text-[var(--color-primary)] transition-colors"></i>
+                </button>
+
+                <!-- Opción 2: Crear nuevo -->
+                <button @onclick="() => _modo = Modo.CrearNuevo"
+                        class="flex items-center gap-4 p-5 rounded-2xl bg-[var(--color-card)] border border-white/5 hover:border-[var(--color-success)]/40 hover:bg-[var(--color-success)]/5 transition-all text-left group">
+                    <div class="w-12 h-12 rounded-xl bg-[var(--color-success)]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--color-success)]/30 transition-colors">
+                        <i class="bi bi-plus-circle text-[var(--color-success)] text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-white font-medium">Crear producto nuevo</p>
+                        <p class="text-xs text-gray-400 mt-0.5">El código de barras se precarga automáticamente</p>
+                    </div>
+                    <i class="bi bi-chevron-right text-gray-600 ml-auto group-hover:text-[var(--color-success)] transition-colors"></i>
+                </button>
+            </div>
+        </div>
+    }
+
+    <!-- ─── MODO: ASIGNAR A EXISTENTE ────────────────────── -->
+    @if (_modo == Modo.AsignarExistente)
+    {
+        <div class="space-y-4 animate-fade-in">
+            <div class="premium-card p-6">
+                <h3 class="text-lg font-semibold text-white mb-1">Asignar código a producto</h3>
+                <p class="text-sm text-gray-400 mb-5">
+                    Se asignará el código <span class="font-mono text-[var(--color-primary)]">@_ultimoCodigo</span> al producto que selecciones.
+                </p>
+
+                <!-- Buscador -->
+                <div class="relative mb-4">
+                    <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input @bind="_busquedaAsignar" @bind:event="oninput"
+                           placeholder="Buscar producto por nombre o SKU..."
+                           class="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-[var(--color-primary)] transition-all" />
+                </div>
+
+                <!-- Lista de productos -->
+                <div class="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pr-1">
+                    @if (!ProductosFiltradosAsignar.Any() && !string.IsNullOrWhiteSpace(_busquedaAsignar))
+                    {
+                        <p class="text-center text-gray-500 py-8 text-sm">No se encontraron productos.</p>
+                    }
+                    else if (!ProductosFiltradosAsignar.Any())
+                    {
+                        <p class="text-center text-gray-500 py-8 text-sm">Escribí para buscar un producto.</p>
+                    }
+                    else
+                    {
+                        @foreach (var p in ProductosFiltradosAsignar.Take(20))
+                        {
+                            bool seleccionado = _productoSeleccionadoAsignar?.Id == p.Id;
+                            <div @onclick="() => _productoSeleccionadoAsignar = p"
+                                 class="flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all @(seleccionado ? "bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30" : "bg-white/5 border border-transparent hover:bg-white/8")">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm text-white truncate font-medium">@p.Name</p>
+                                    <p class="text-xs text-gray-500 mt-0.5">@p.SKU • Stock: @p.Stock</p>
+                                </div>
+                                <div class="flex items-center gap-3 flex-shrink-0 ml-3">
+                                    <span class="text-sm font-medium text-[var(--color-secondary)]">@p.Price.ToString("C")</span>
+                                    @if (seleccionado)
+                                    {
+                                        <div class="w-5 h-5 rounded-full bg-[var(--color-primary)] flex items-center justify-center">
+                                            <i class="bi bi-check text-white" style="font-size:10px"></i>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <!-- Botones -->
+                <div class="flex justify-end gap-3 mt-5 pt-4 border-t border-white/5">
+                    <button @onclick="() => { _modo = Modo.NoEncontrado; _productoSeleccionadoAsignar = null; }"
+                            class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm transition-colors">
+                        Volver
+                    </button>
+                    <button @onclick="ConfirmarAsignacion"
+                            disabled="@(_productoSeleccionadoAsignar == null || _guardando)"
+                            class="px-5 py-2.5 rounded-xl bg-[var(--color-primary)] hover:brightness-110 text-white text-sm transition-all disabled:opacity-50 flex items-center gap-2">
+                        @if (_guardando) { <i class="bi bi-arrow-repeat animate-spin"></i> }
+                        <i class="bi bi-link-45deg"></i>
+                        Vincular código
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- ─── MODO: CREAR NUEVO ─────────────────────────────── -->
+    @if (_modo == Modo.CrearNuevo)
+    {
+        <div class="animate-fade-in">
+            <div class="premium-card p-6">
+                <h3 class="text-lg font-semibold text-white mb-1">Crear nuevo producto</h3>
+                <p class="text-sm text-gray-400 mb-5">
+                    Código de barras: <span class="font-mono text-[var(--color-primary)]">@_ultimoCodigo</span>
+                </p>
+
+                <EditForm Model="_nuevoProducto" OnValidSubmit="GuardarNuevoProducto">
+                    <DataAnnotationsValidator />
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Nombre *</label>
+                            <InputText @bind-Value="_nuevoProducto.Name" autofocus
+                                       class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]" />
+                            <ValidationMessage For="() => _nuevoProducto.Name" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">SKU</label>
+                            <InputText @bind-Value="_nuevoProducto.SKU" placeholder="Ej: mt150"
+                                       class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]" />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Categoría *</label>
+                            <InputSelect @bind-Value="_nuevoProducto.CategoryId"
+                                         class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]">
+                                <option value="@Guid.Empty">-- Seleccionar --</option>
+                                @foreach (var c in _categorias)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => _nuevoProducto.CategoryId" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Precio *</label>
+                            <InputNumber @bind-Value="_nuevoProducto.Price" step="0.01"
+                                         class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]" />
+                            <ValidationMessage For="() => _nuevoProducto.Price" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Stock inicial</label>
+                            <InputNumber @bind-Value="_nuevoProducto.Stock"
+                                         class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]" />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Unidad de medida *</label>
+                            <InputText @bind-Value="_nuevoProducto.UnidadMedida" placeholder="u., Kg, mts..."
+                                       class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]" />
+                            <ValidationMessage For="() => _nuevoProducto.UnidadMedida" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                        </div>
+
+                        <!-- Código de barras pre-cargado (solo lectura) -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-300 mb-1">Código de barras</label>
+                            <div class="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30 rounded-xl">
+                                <i class="bi bi-upc text-[var(--color-primary)]"></i>
+                                <span class="text-white font-mono text-sm">@_ultimoCodigo</span>
+                                <span class="ml-auto text-xs text-[var(--color-primary)]">Pre-cargado</span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-white/5">
+                        <button type="button" @onclick="() => _modo = Modo.NoEncontrado"
+                                class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm transition-colors">
+                            Volver
+                        </button>
+                        <button type="submit" disabled="@_guardando"
+                                class="px-5 py-2.5 rounded-xl bg-[var(--color-success)] hover:brightness-110 text-white text-sm transition-all disabled:opacity-50 flex items-center gap-2">
+                            @if (_guardando) { <i class="bi bi-arrow-repeat animate-spin"></i> }
+                            <i class="bi bi-plus-circle"></i>
+                            Crear producto
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private enum Modo { Escaneando, Encontrado, NoEncontrado, AsignarExistente, CrearNuevo }
+
+    private Modo _modo = Modo.Escaneando;
+    private string _ultimoCodigo = "";
+    private string _codigoManual = "";
+    private Producto? _productoEncontrado;
+    private string _categoriaNombre = "";
+    private List<Categoria> _categorias = new();
+    private List<Producto> _todosProductos = new();
+    private bool _guardando = false;
+
+    // Asignar existente
+    private string _busquedaAsignar = "";
+    private Producto? _productoSeleccionadoAsignar;
+    private IEnumerable<Producto> ProductosFiltradosAsignar => string.IsNullOrWhiteSpace(_busquedaAsignar)
+        ? Enumerable.Empty<Producto>()
+        : _todosProductos.Where(p =>
+            p.Name.Contains(_busquedaAsignar, StringComparison.OrdinalIgnoreCase) ||
+            p.SKU.Contains(_busquedaAsignar, StringComparison.OrdinalIgnoreCase));
+
+    // Crear nuevo
+    private Producto _nuevoProducto = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categorias = await Data.GetCategoriasAsync();
+        _todosProductos = await Data.GetProductosAsync();
+    }
+
+    private async Task OnCodigoEscaneado(string codigo)
+    {
+        if (_modo != Modo.Escaneando) return;
+        await ProcesarCodigo(codigo);
+    }
+
+    private async Task BuscarManual()
+    {
+        if (string.IsNullOrWhiteSpace(_codigoManual)) return;
+        await ProcesarCodigo(_codigoManual.Trim());
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await BuscarManual();
+    }
+
+    private async Task ProcesarCodigo(string codigo)
+    {
+        _ultimoCodigo = codigo;
+        var producto = await Data.GetProductoPorCodigoBarrasAsync(codigo);
+
+        if (producto != null)
+        {
+            _productoEncontrado = producto;
+            var cat = _categorias.FirstOrDefault(c => c.Id == producto.CategoryId);
+            _categoriaNombre = cat?.Name ?? "Sin categoría";
+            _modo = Modo.Encontrado;
+        }
+        else
+        {
+            _modo = Modo.NoEncontrado;
+            // Pre-cargar el nuevo producto con el código
+            _nuevoProducto = new Producto { CodigoBarras = codigo, UnidadMedida = "u." };
+        }
+
+        StateHasChanged();
+    }
+
+    private void OnErrorCamara(string error)
+    {
+        // El componente BarcodeScanner ya muestra el error internamente
+    }
+
+    private void Reiniciar()
+    {
+        _modo = Modo.Escaneando;
+        _ultimoCodigo = "";
+        _codigoManual = "";
+        _productoEncontrado = null;
+        _productoSeleccionadoAsignar = null;
+        _busquedaAsignar = "";
+        _nuevoProducto = new Producto { UnidadMedida = "u." };
+    }
+
+    private void AgregarAlCarritoYVolver()
+    {
+        // Navega al POS con el código del producto para que lo agregue al carrito
+        Nav.NavigateTo($"/ventas?scan={Uri.EscapeDataString(_ultimoCodigo)}");
+    }
+
+    private void IrAEditar()
+    {
+        Nav.NavigateTo("/productos");
+    }
+
+    private async Task ConfirmarAsignacion()
+    {
+        if (_productoSeleccionadoAsignar == null) return;
+        _guardando = true;
+        try
+        {
+            await Data.AsignarCodigoBarrasAsync(_productoSeleccionadoAsignar.Id, _ultimoCodigo);
+            Notifications.Success($"Código asignado a '{_productoSeleccionadoAsignar.Name}' correctamente.");
+            // Recargar lista local
+            _todosProductos = await Data.GetProductosAsync();
+            _productoEncontrado = _productoSeleccionadoAsignar;
+            var cat = _categorias.FirstOrDefault(c => c.Id == _productoSeleccionadoAsignar.CategoryId);
+            _categoriaNombre = cat?.Name ?? "Sin categoría";
+            _modo = Modo.Encontrado;
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"Error al asignar código: {ex.Message}");
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    private async Task GuardarNuevoProducto()
+    {
+        _guardando = true;
+        try
+        {
+            _nuevoProducto.CodigoBarras = _ultimoCodigo;
+            await Data.SaveProductoAsync(_nuevoProducto);
+            Notifications.Success($"Producto '{_nuevoProducto.Name}' creado correctamente.");
+            _todosProductos = await Data.GetProductosAsync();
+            _productoEncontrado = _nuevoProducto;
+            var cat = _categorias.FirstOrDefault(c => c.Id == _nuevoProducto.CategoryId);
+            _categoriaNombre = cat?.Name ?? "Sin categoría";
+            _modo = Modo.Encontrado;
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"Error al crear producto: {ex.Message}");
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}

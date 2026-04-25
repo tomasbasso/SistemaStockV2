@@ -2,77 +2,120 @@
 @page "/dashboard"
 @using Sistema_de_Stock.Models
 @inject DataService Data
+@inject NavigationManager Nav
+@inject IJSRuntime JS
 
-<div class="max-w-7xl mx-auto">
+<div class="dashboard-shell">
 
-    <!-- Header -->
-    <div class="mb-8">
-        <h2 class="page-title mb-1">Dashboard</h2>
-        <p class="page-subtitle">Resumen general del negocio</p>
+    <div class="dashboard-hero">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="text-[11px] font-extrabold uppercase tracking-[0.28em] text-[var(--color-primary)] mb-1">Panel Principal</p>
+                <h2 class="text-2xl font-extrabold text-[var(--color-text-primary)] tracking-tight">Dashboard</h2>
+                <p class="text-sm text-[var(--color-text-secondary)] mt-0.5">Resumen general del negocio al instante.</p>
+            </div>
+
+            <div @onclick="OpenSearchAsync" class="dashboard-search-shell w-full sm:w-72 cursor-pointer hover:bg-[var(--color-surface)] transition-colors">
+                <i class="bi bi-search text-[var(--color-neutral)] text-sm"></i>
+                <span class="text-sm text-[var(--color-text-secondary)]">Buscar (Ctrl+K)...</span>
+            </div>
+        </div>
+    </div>
+
+    @* Acciones Rápidas *@
+    <div class="flex flex-wrap items-center gap-3 animate-fade-in -mt-3">
+        <button @onclick='() => Nav.NavigateTo("/ventas")' class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-semibold hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--color-primary)]/25 transition-all">
+            <i class="bi bi-plus-circle text-base"></i> Nueva Venta
+        </button>
+        <button @onclick='() => Nav.NavigateTo("/productos")' class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-sm font-semibold hover:-translate-y-0.5 hover:border-[var(--color-primary)]/30 hover:shadow-md transition-all">
+            <i class="bi bi-box-seam text-[var(--color-primary)] text-base"></i> Nuevo Producto
+        </button>
+        <button @onclick='() => Nav.NavigateTo("/finanzas")' class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-sm font-semibold hover:-translate-y-0.5 hover:border-[var(--color-warning)]/30 hover:shadow-md transition-all">
+            <i class="bi bi-cash-stack text-[var(--color-warning)] text-base"></i> Registrar Gasto
+        </button>
     </div>
 
     @if (isLoading)
     {
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            @for(int i = 0; i < 4; i++)
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            @for (int i = 0; i < 4; i++)
             {
-                <div class="premium-card p-6 min-h-[140px] animate-pulse"></div>
+                <div class="dashboard-stat-card min-h-[140px] animate-pulse bg-[var(--color-neutral)]/10"></div>
             }
         </div>
     }
     else
     {
-        <!-- KPIs Row -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            
-            <!-- Ventas Hoy -->
-            <div class="premium-card p-6 relative overflow-hidden group">
-                <div class="absolute -right-6 -top-6 text-white/5 group-hover:text-[var(--color-primary)]/10 transition-colors">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+
+            @* Ventas Hoy *@
+            <div class="dashboard-stat-card group">
+                <div class="absolute -right-5 -top-5 text-[var(--color-primary)] opacity-[0.05] group-hover:opacity-[0.09] transition-opacity">
                     <i class="bi bi-cart-check text-9xl"></i>
                 </div>
                 <div class="relative z-10">
-                    <p class="text-xs uppercase tracking-widest text-gray-500 mb-2">Ventas Hoy</p>
-                    <h3 class="text-3xl font-bold text-white mb-2">@VentasHoy.ToString("C")</h3>
-                    <p class="text-xs text-green-400 flex items-center gap-1">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Ventas Hoy</span>
+                        <span class="w-8 h-8 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
+                            <i class="bi bi-cart-fill text-sm"></i>
+                        </span>
+                    </div>
+                    <h3 class="text-3xl font-extrabold text-[var(--color-text-primary)] mb-1">@VentasHoy.ToString("C")</h3>
+                    <p class="text-xs text-[var(--color-primary)] font-semibold flex items-center gap-1">
                         <i class="bi bi-graph-up"></i> @CantidadVentasHoy transacciones
                     </p>
                 </div>
             </div>
 
-            <!-- Balances CC -->
-            <div class="premium-card p-6 relative overflow-hidden group">
-                <div class="absolute -right-6 -top-6 text-white/5 group-hover:text-[var(--color-warning)]/10 transition-colors">
+            @* Deuda Clientes — color-text-primary (NO amarillo) *@
+            <div class="dashboard-stat-card group">
+                <div class="absolute -right-5 -top-5 text-[var(--color-neutral)] opacity-[0.06] group-hover:opacity-[0.10] transition-opacity">
                     <i class="bi bi-person-lines-fill text-9xl"></i>
                 </div>
                 <div class="relative z-10">
-                    <p class="text-xs uppercase tracking-widest text-gray-500 mb-2">Deuda Clientes (C/C)</p>
-                    <h3 class="text-3xl font-bold text-[var(--color-warning)] mb-2">@TotalDeuda.ToString("C")</h3>
-                    <p class="text-xs text-gray-400">Capital por cobrar</p>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Deuda Clientes</span>
+                        <span class="w-8 h-8 rounded-xl bg-[var(--color-neutral)]/15 flex items-center justify-center text-[var(--color-neutral)]">
+                            <i class="bi bi-wallet2 text-sm"></i>
+                        </span>
+                    </div>
+                    <h3 class="text-3xl font-extrabold text-[var(--color-text-primary)] mb-1">@TotalDeuda.ToString("C")</h3>
+                    <p class="text-xs text-[var(--color-text-secondary)]">Capital por cobrar</p>
                 </div>
             </div>
 
-            <!-- Capital en Stock -->
-            <div class="premium-card p-6 relative overflow-hidden group">
-                <div class="absolute -right-6 -top-6 text-white/5 group-hover:text-[var(--color-success)]/10 transition-colors">
+            @* Valor Inventario *@
+            <div class="dashboard-stat-card group">
+                <div class="absolute -right-5 -top-5 text-[var(--color-primary)] opacity-[0.05] group-hover:opacity-[0.09] transition-opacity">
                     <i class="bi bi-box-seam text-9xl"></i>
                 </div>
                 <div class="relative z-10">
-                    <p class="text-xs uppercase tracking-widest text-gray-500 mb-2">Valor de Inventario</p>
-                    <h3 class="text-3xl font-bold text-white mb-2">@ValorInventario.ToString("C")</h3>
-                    <p class="text-xs text-gray-400">Total en precio público</p>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Valor Inventario</span>
+                        <span class="w-8 h-8 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
+                            <i class="bi bi-archive-fill text-sm"></i>
+                        </span>
+                    </div>
+                    <h3 class="text-3xl font-extrabold text-[var(--color-text-primary)] mb-1">@ValorInventario.ToString("C")</h3>
+                    <p class="text-xs text-[var(--color-text-secondary)]">Total en precio público</p>
                 </div>
             </div>
 
-            <!-- Productos Registrados -->
-            <div class="premium-card p-6 relative overflow-hidden group">
-                <div class="absolute -right-6 -top-6 text-white/5 group-hover:text-[var(--color-primary)]/10 transition-colors">
+            @* Productos — badge semántico verde/rojo *@
+            <div class="dashboard-stat-card group">
+                <div class="absolute -right-5 -top-5 text-[var(--color-primary)] opacity-[0.05] group-hover:opacity-[0.09] transition-opacity">
                     <i class="bi bi-tags text-9xl"></i>
                 </div>
                 <div class="relative z-10">
-                    <p class="text-xs uppercase tracking-widest text-gray-500 mb-2">Productos Totales</p>
-                    <h3 class="text-3xl font-bold text-white mb-2">@TotalProductos</h3>
-                    <p class="text-xs flex items-center gap-1 @(ProductosBajoStock.Any() ? "text-[var(--color-danger)]" : "text-[var(--color-success)]")">
-                        @if(ProductosBajoStock.Any())
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Productos</span>
+                        <span class="w-8 h-8 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
+                            <i class="bi bi-box-fill text-sm"></i>
+                        </span>
+                    </div>
+                    <h3 class="text-3xl font-extrabold text-[var(--color-text-primary)] mb-1">@TotalProductos</h3>
+                    <p class="text-xs flex items-center gap-1 font-semibold @(ProductosBajoStock.Any() ? "text-[var(--color-danger)]" : "text-[var(--color-success)]")">
+                        @if (ProductosBajoStock.Any())
                         {
                             <i class="bi bi-exclamation-triangle"></i> <span>@ProductosBajoStock.Count bajo stock</span>
                         }
@@ -83,91 +126,101 @@
                     </p>
                 </div>
             </div>
-            
+
         </div>
 
-        <!-- Segundo Nivel de KPIs -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            
-            <!-- Rotación Anual -->
-            <div class="premium-card p-6 relative overflow-hidden group">
-                <div class="absolute -right-6 -top-6 text-white/5 group-hover:text-[var(--color-info)]/10 transition-colors">
+        @* CHART V2.0 *@
+        <div class="dashboard-stat-card mb-5 p-0 group overflow-hidden">
+            <div class="p-6 pb-0 flex items-center justify-between">
+                <div>
+                    <h3 class="font-extrabold text-[var(--color-text-primary)] text-lg">Evolución de Ingresos</h3>
+                    <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--color-text-secondary)] mt-0.5">Últimos 7 días</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="flex items-center gap-1.5 px-3 py-1 bg-[var(--color-success-bg)] text-[var(--color-success-foreground)] rounded-lg text-xs font-bold border border-[var(--color-success)]/20 shadow-sm">
+                        <i class="bi bi-graph-up-arrow"></i> +14.5%
+                    </span>
+                </div>
+            </div>
+            <div class="px-3 pb-3">
+                <DashboardChart Labels="@ChartLabels" Data="@ChartData" />
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+            @* Rotación Anual *@
+            <div class="dashboard-highlight-card p-6 group relative overflow-hidden">
+                <div class="absolute -right-5 -top-5 text-[var(--color-primary)] opacity-[0.05] group-hover:opacity-[0.09] transition-opacity">
                     <i class="bi bi-arrow-repeat text-9xl"></i>
                 </div>
                 <div class="relative z-10">
-                    <div class="flex items-center justify-between mb-2">
-                        <p class="text-xs uppercase tracking-widest text-gray-500">Rotación Anual</p>
-                        <i class="bi bi-info-circle text-gray-500 cursor-help" 
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Rotación Anual</p>
+                        <i class="bi bi-info-circle text-[var(--color-neutral)] cursor-help text-xs"
                            title="Veces que el inventario completo se vendió y repuso en el último año"></i>
                     </div>
-                    <h3 class="text-3xl font-bold text-white mb-2">@RotacionAnual.ToString("N2")</h3>
+                    <h3 class="text-3xl font-extrabold text-[var(--color-text-primary)] mb-1">@RotacionAnual.ToString("N2")</h3>
                     <div class="flex items-center gap-2">
-                        <p class="text-xs text-gray-400">veces/año</p>
+                        <p class="text-xs text-[var(--color-text-secondary)]">veces/año</p>
                         @if (RotacionAnual < 2)
                         {
-                            <span class="px-2 py-0.5 rounded-full text-xs bg-yellow-500/20 text-yellow-400">
-                                Baja rotación
-                            </span>
+                            <span class="px-2 py-0.5 rounded-full text-xs bg-[var(--color-warning-bg)] text-[var(--color-warning-foreground)] border border-[var(--color-warning)]/25 font-semibold">Baja rotación</span>
                         }
                         else if (RotacionAnual >= 6)
                         {
-                            <span class="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-400">
-                                Buena rotación
-                            </span>
+                            <span class="px-2 py-0.5 rounded-full text-xs bg-[var(--color-success-bg)] text-[var(--color-success-foreground)] border border-[var(--color-success)]/25 font-semibold">Buena rotación</span>
                         }
                     </div>
                 </div>
             </div>
 
-            <!-- Top 5 baja rotación -->
-            <div class="premium-card p-6 relative overflow-hidden group">
-                <div class="absolute -right-6 -top-6 text-white/5 group-hover:text-[var(--color-warning)]/10 transition-colors">
-                    <i class="bi bi-hourglass-split text-9xl"></i>
-                </div>
-                <div class="relative z-10">
-                    <div class="flex items-center justify-between mb-3">
-                        <p class="text-xs uppercase tracking-widest text-gray-500">Top 5 baja rotación</p>
-                        <a class="text-[var(--color-primary)] text-xs hover:underline" href="variacion-precios">Ver análisis completo</a>
+            @* Top 5 baja rotación *@
+            <div class="dashboard-highlight-card lg:col-span-2">
+                <div class="px-6 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="bi bi-hourglass-split text-[var(--color-warning)]"></i>
+                        <h3 class="font-semibold text-[var(--color-text-primary)] text-sm">Top 5 baja rotación</h3>
                     </div>
-                    <div class="space-y-2">
-                        @if (!TopRotacionBaja.Any())
+                    <a class="text-[var(--color-primary)] text-xs font-semibold hover:underline" href="variacion-precios">Ver análisis completo</a>
+                </div>
+                <div class="p-5 space-y-2">
+                    @if (!TopRotacionBaja.Any())
+                    {
+                        <p class="text-[var(--color-text-secondary)] text-sm py-4 text-center">Todo con rotación aceptable.</p>
+                    }
+                    else
+                    {
+                        @foreach (var item in TopRotacionBaja)
                         {
-                            <p class="text-gray-400 text-sm">Todo con rotación aceptable.</p>
-                        }
-                        else
-                        {
-                            @foreach (var item in TopRotacionBaja)
-                            {
-                                <div class="flex items-center justify-between text-sm bg-white/5 rounded-lg px-3 py-2">
-                                    <div class="flex-1">
-                                        <div class="text-white font-medium truncate">@item.Nombre</div>
-                                        <div class="text-[10px] text-gray-500">Stock: @item.StockActual | Ventas 12m: @item.UnidadesVendidas12m</div>
-                                    </div>
-                                    <div class="text-right">
-                                        <div class="text-yellow-300 font-bold">@item.Rotacion.ToString("N2")</div>
-                                        <div class="text-[10px] text-gray-500">Días sin venta: @item.DiasSinVenta</div>
-                                    </div>
+                            <div class="dashboard-surface flex items-center justify-between gap-4 text-sm px-4 py-3">
+                                <div class="flex-1">
+                                    <div class="text-[var(--color-text-primary)] font-semibold truncate">@item.Nombre</div>
+                                    <div class="text-[10px] text-[var(--color-text-secondary)]">Stock: @item.StockActual | Ventas 12m: @item.UnidadesVendidas12m</div>
                                 </div>
-                            }
+                                <div class="text-right">
+                                    <div class="text-[var(--color-warning-foreground)] font-bold">@item.Rotacion.ToString("N2")</div>
+                                    <div class="text-[10px] text-[var(--color-text-secondary)]">Días sin venta: @item.DiasSinVenta</div>
+                                </div>
+                            </div>
                         }
-                    </div>
+                    }
                 </div>
             </div>
-
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- Alertas de Stock -->
-            <div class="lg:col-span-2 premium-card flex flex-col h-[400px]">
-                <div class="px-6 py-4 border-b border-white/5 flex items-center gap-2">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+            @* Alertas de Stock *@
+            <div class="dashboard-highlight-card lg:col-span-2 flex flex-col" style="height:400px">
+                <div class="px-6 py-4 border-b border-[var(--color-border)] flex items-center gap-2">
                     <i class="bi bi-bell-fill text-[var(--color-warning)]"></i>
-                    <h3 class="font-semibold text-white">Alertas de Stock</h3>
+                    <h3 class="font-semibold text-[var(--color-text-primary)]">Alertas de Stock</h3>
                 </div>
-                <div class="p-0 flex-1 overflow-y-auto">
+                <div class="flex-1 overflow-y-auto">
                     @if (!ProductosBajoStock.Any())
                     {
-                        <div class="p-8 text-center text-gray-400 h-full flex flex-col items-center justify-center">
+                        <div class="p-8 text-center text-[var(--color-text-secondary)] h-full flex flex-col items-center justify-center">
                             <i class="bi bi-check-circle text-4xl text-[var(--color-success)]/50 mb-3 block"></i>
                             El stock está en niveles óptimos.
                         </div>
@@ -175,27 +228,27 @@
                     else
                     {
                         <table class="w-full text-left whitespace-nowrap">
-                            <thead class="sticky top-0 bg-[var(--color-card)] z-10">
-                                <tr class="bg-white/5 text-xs text-gray-400">
-                                    <th class="px-6 py-3 font-medium">Producto</th>
-                                    <th class="px-6 py-3 font-medium text-right">Stock Actual</th>
-                                    <th class="px-6 py-3 font-medium text-right">Mínimo</th>
+                            <thead class="sticky top-0 z-10">
+                                <tr class="text-xs text-[var(--color-text-secondary)]">
+                                    <th class="px-6 py-3 font-semibold">Producto</th>
+                                    <th class="px-6 py-3 font-semibold text-right">Stock</th>
+                                    <th class="px-6 py-3 font-semibold text-right">Mínimo</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-white/5">
+                            <tbody class="divide-y divide-[var(--color-border)]">
                                 @foreach (var p in ProductosBajoStock)
                                 {
-                                    <tr class="hover:bg-white/5 transition-colors">
+                                    <tr class="hover:bg-[var(--color-primary)]/4 transition-colors">
                                         <td class="px-6 py-3">
-                                            <div class="font-medium text-white text-sm">@p.Name</div>
-                                            <div class="text-xs text-gray-500 font-mono">@p.SKU</div>
+                                            <div class="font-medium text-[var(--color-text-primary)] text-sm">@p.Name</div>
+                                            <div class="text-xs text-[var(--color-text-secondary)] font-mono">@p.SKU</div>
                                         </td>
                                         <td class="px-6 py-3 text-right">
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--color-danger)]/20 text-[var(--color-danger)] border border-[var(--color-danger)]/30">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--color-danger-bg)] text-[var(--color-danger)] border border-[var(--color-danger)]/20">
                                                 @p.Stock u.
                                             </span>
                                         </td>
-                                        <td class="px-6 py-3 text-right text-gray-400 text-sm">
+                                        <td class="px-6 py-3 text-right text-[var(--color-text-secondary)] text-sm">
                                             @p.StockMinimo u.
                                         </td>
                                     </tr>
@@ -205,38 +258,34 @@
                     }
                 </div>
             </div>
-            
-            <!-- Actividad Reciente -->
-            <div class="premium-card flex flex-col h-[400px]">
-                <div class="px-6 py-4 border-b border-white/5 flex items-center gap-2">
-                    <i class="bi bi-clock-history text-gray-400"></i>
-                    <h3 class="font-semibold text-white">Actividad Reciente</h3>
+
+            @* Actividad Reciente *@
+            <div class="dashboard-highlight-card flex flex-col" style="height:400px">
+                <div class="px-6 py-4 border-b border-[var(--color-border)] flex items-center gap-2">
+                    <i class="bi bi-clock-history text-[var(--color-primary)]"></i>
+                    <h3 class="font-semibold text-[var(--color-text-primary)]">Actividad Reciente</h3>
                 </div>
                 <div class="p-6 flex-1 overflow-y-auto">
                     @if (!UltimosMovimientos.Any())
                     {
-                        <div class="text-center text-gray-500 py-8">
+                        <div class="text-center text-[var(--color-text-secondary)] py-8">
                             Sin movimientos registrados hoy.
                         </div>
                     }
                     else
                     {
-                        <div class="space-y-6">
+                        <div class="space-y-5">
                             @foreach (var m in UltimosMovimientos.Take(10))
                             {
                                 <div class="relative pl-6">
-                                    <!-- Timeline line -->
-                                    <div class="absolute left-[11px] top-6 bottom-[-24px] w-px bg-white/10 last:hidden"></div>
-                                    
-                                    <!-- Timeline dot -->
-                                    <div class="absolute left-0 top-1 w-[22px] h-[22px] rounded-full flex items-center justify-center bg-[var(--color-card)] border-2 border-white/10 z-10">
+                                    <div class="absolute left-[11px] top-6 bottom-[-20px] w-px bg-[var(--color-border)] last:hidden"></div>
+                                    <div class="absolute left-0 top-1 w-[22px] h-[22px] rounded-full flex items-center justify-center bg-white border-2 border-[var(--color-border)] z-10">
                                         <div class="w-2 h-2 rounded-full @(m.Type == TipoMovimiento.Ingreso ? "bg-[var(--color-success)]" : "bg-[var(--color-danger)]")"></div>
                                     </div>
-                                    
                                     <div>
-                                        <p class="text-sm font-medium text-white">@m.Description</p>
+                                        <p class="text-sm font-medium text-[var(--color-text-primary)]">@m.Description</p>
                                         <div class="flex items-center justify-between mt-1">
-                                            <p class="text-xs text-gray-500">@m.Date.ToString("HH:mm")</p>
+                                            <p class="text-xs text-[var(--color-text-secondary)]">@m.Date.ToString("HH:mm")</p>
                                             <p class="text-xs font-bold @(m.Type == TipoMovimiento.Ingreso ? "text-[var(--color-success)]" : "text-[var(--color-danger)]")">
                                                 @(m.Type == TipoMovimiento.Ingreso ? "+" : "-")@m.Amount.ToString("C")
                                             </p>
@@ -257,7 +306,6 @@
 @code {
     private bool isLoading = true;
 
-    // Data
     private decimal VentasHoy = 0;
     private int CantidadVentasHoy = 0;
     private decimal TotalDeuda = 0;
@@ -268,9 +316,17 @@
     private List<MovimientoFinanciero> UltimosMovimientos = new();
     private List<RotacionProductoDto> TopRotacionBaja = new();
 
+    private List<string> ChartLabels = new() { "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom" };
+    private List<double> ChartData = new() { 12500, 15300, 14200, 22000, 18500, 29000, 11400 };
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
+    }
+
+    private async Task OpenSearchAsync()
+    {
+        await JS.InvokeVoidAsync("eval", "if(window.appUI && window.appUI.layoutRef) window.appUI.layoutRef.invokeMethodAsync('OpenGlobalSearch')");
     }
 
     private async Task LoadData()
@@ -287,7 +343,6 @@
         ProductosBajoStock = data.BajoStock;
         UltimosMovimientos = data.UltimosMovimientos;
 
-        // Cargar Rotación Anual
         RotacionAnual = await Data.CalcularRotacionAnualAsync();
         TopRotacionBaja = await Data.GetRotacionProductosAsync(null, null, true, 5);
 

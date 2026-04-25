@@ -52,6 +52,8 @@ namespace Sistema_de_Stock.Models
 
         [MaxLength(100, ErrorMessage = "La ubicación no puede superar 100 caracteres.")]
         public string Ubicacion { get; set; } = string.Empty;
+        [MaxLength(50, ErrorMessage = "El código de barras no puede superar 50 caracteres.")]
+public string? CodigoBarras { get; set; }
 
         public bool IsDeleted { get; set; } = false;
     }

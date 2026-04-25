@@ -1,0 +1,26 @@
+@inject IJSRuntime JSRuntime
+
+<div class="relative w-full h-[250px] mt-4">
+    <canvas id="@Id"></canvas>
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = "chart-" + Guid.NewGuid().ToString("N");
+
+    [Parameter]
+    public List<string> Labels { get; set; } = new();
+
+    [Parameter]
+    public List<double> Data { get; set; } = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Data.Any())
+        {
+            // Delay slightly to ensure canvas is in DOM
+            await Task.Delay(100);
+            await JSRuntime.InvokeVoidAsync("appUI.initChart", Id, Labels.ToArray(), Data.ToArray());
+        }
+    }
+}

@@ -1,21 +1,20 @@
 
-
 @if (TotalPages > 1)
 {
-    <div class="flex items-center justify-between border-t border-white/5 bg-black/10 px-6 py-3 rounded-b-2xl">
+    <div class="flex items-center justify-between border-t border-[var(--color-line)] bg-[var(--color-surface)] px-6 py-3 rounded-b-2xl">
         <div class="flex flex-1 justify-between sm:hidden">
-            <button @onclick="Previous" disabled="@(CurrentPage == 1)" class="relative inline-flex items-center rounded-lg bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Anterior</button>
-            <button @onclick="Next" disabled="@(CurrentPage == TotalPages)" class="relative ml-3 inline-flex items-center rounded-lg bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Siguiente</button>
+            <button @onclick="Previous" disabled="@(CurrentPage == 1)" class="relative inline-flex items-center rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-[var(--color-text-soft)] hover:bg-[var(--color-primary)]/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Anterior</button>
+            <button @onclick="Next" disabled="@(CurrentPage == TotalPages)" class="relative ml-3 inline-flex items-center rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-[var(--color-text-soft)] hover:bg-[var(--color-primary)]/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Siguiente</button>
         </div>
         <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
             <div>
-                <p class="text-xs text-gray-400">
-                    Mostrando <span class="font-medium text-white">@(((CurrentPage - 1) * PageSize) + 1)</span> a <span class="font-medium text-white">@(Math.Min(CurrentPage * PageSize, TotalItems))</span> de <span class="font-medium text-white">@TotalItems</span> resultados
+                <p class="text-xs text-[var(--color-muted)]">
+                    Mostrando <span class="font-medium text-[var(--color-ink)]">@(((CurrentPage - 1) * PageSize) + 1)</span> a <span class="font-medium text-[var(--color-ink)]">@(Math.Min(CurrentPage * PageSize, TotalItems))</span> de <span class="font-medium text-[var(--color-ink)]">@TotalItems</span> resultados
                 </p>
             </div>
             <div>
                 <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                    <button @onclick="Previous" disabled="@(CurrentPage == 1)" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-white/10 hover:bg-white/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
+                    <button @onclick="Previous" disabled="@(CurrentPage == 1)" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-[var(--color-muted)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
                         <span class="sr-only">Anterior</span>
                         <i class="bi bi-chevron-left h-5 w-5"></i>
                     </button>
@@ -24,10 +23,10 @@
                     @for (int i = Math.Max(1, CurrentPage - 2); i <= Math.Min(TotalPages, CurrentPage + 2); i++)
                     {
                         int pageNum = i;
-                        <button @onclick="() => GoToPage(pageNum)" aria-current="@(pageNum == CurrentPage ? "page" : null)" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold @(pageNum == CurrentPage ? "bg-[var(--color-primary)] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]" : "text-gray-300 ring-1 ring-inset ring-white/10 hover:bg-white/5 focus:z-20 focus:outline-offset-0 transition-colors")">@pageNum</button>
+                        <button @onclick="() => GoToPage(pageNum)" aria-current="@(pageNum == CurrentPage ? "page" : null)" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold @(pageNum == CurrentPage ? "bg-[var(--color-primary)] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]" : "text-[var(--color-text-soft)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 transition-colors")">@pageNum</button>
                     }
                     
-                    <button @onclick="Next" disabled="@(CurrentPage == TotalPages)" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-white/10 hover:bg-white/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
+                    <button @onclick="Next" disabled="@(CurrentPage == TotalPages)" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-[var(--color-muted)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
                         <span class="sr-only">Siguiente</span>
                         <i class="bi bi-chevron-right h-5 w-5"></i>
                     </button>

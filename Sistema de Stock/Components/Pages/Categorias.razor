@@ -53,6 +53,9 @@
                     </div>
                     
                     <div class="flex items-center justify-end gap-2 mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button @onclick="() => OpenViewProducts(cat)" title="Ver productos" class="w-8 h-8 rounded-md bg-white/5 text-gray-300 hover:text-white hover:bg-[var(--color-primary)] transition-colors flex items-center justify-center">
+                            <i class="bi bi-eye"></i>
+                        </button>
                         <button @onclick="() => OpenEdit(cat)" class="w-8 h-8 rounded-md bg-white/5 text-gray-300 hover:text-white hover:bg-[var(--color-primary)] transition-colors flex items-center justify-center">
                             <i class="bi bi-pencil"></i>
                         </button>
@@ -97,6 +100,66 @@
     </div>
 </AppModal>
 
+<!-- View Products Modal -->
+<AppModal IsOpen="isViewProductsOpen" IsOpenChanged="(v) => isViewProductsOpen = v" Title="@($"Productos en: {viewingCategory?.Name}")">
+    @if (viewingProducts == null)
+    {
+        <div class="flex justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary)]"></div>
+        </div>
+    }
+    else if (!viewingProducts.Any())
+    {
+        <div class="text-center py-12">
+            <i class="bi bi-box-seam text-4xl text-gray-500 block mb-3"></i>
+            <p class="text-gray-400">No hay productos en esta categoría.</p>
+        </div>
+    }
+    else
+    {
+        <div class="mb-3 text-sm text-gray-400">
+            <span class="text-[var(--color-primary)] font-semibold">@viewingProducts.Count</span> producto@(viewingProducts.Count == 1 ? "" : "s")
+        </div>
+        <div class="overflow-x-auto rounded-xl">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-400 border-b border-white/5">
+                        <th class="pb-3 pr-4 font-medium">Nombre</th>
+                        <th class="pb-3 pr-4 font-medium">SKU</th>
+                        <th class="pb-3 pr-4 font-medium text-center">Stock</th>
+                        <th class="pb-3 font-medium text-right">Precio</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    @foreach (var p in viewingProducts)
+                    {
+                        <tr class="hover:bg-white/3 transition-colors">
+                            <td class="py-3 pr-4 text-white font-medium">@p.Name</td>
+                            <td class="py-3 pr-4 text-gray-400 font-mono text-xs">@(string.IsNullOrWhiteSpace(p.SKU) ? "—" : p.SKU)</td>
+                            <td class="py-3 pr-4 text-center">
+                                @if (p.Stock <= p.StockMinimo)
+                                {
+                                    <span class="inline-flex items-center gap-1 text-[var(--color-danger)] font-semibold">
+                                        <i class="bi bi-exclamation-triangle-fill text-xs"></i> @p.Stock
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-[var(--color-success)] font-semibold">@p.Stock</span>
+                                }
+                            </td>
+                            <td class="py-3 text-right text-white font-semibold">$@p.Price.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    <div class="sticky bottom-0 mt-4 pt-4 border-t border-white/5 flex justify-end bg-[var(--color-card)]">
+        <button @onclick="() => isViewProductsOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cerrar</button>
+    </div>
+</AppModal>
+
 @code {
     private List<Categoria> items = new();
     private bool isLoading = true;
@@ -107,6 +170,11 @@
     
     private Categoria editingItem = new();
     private Categoria? deletingItem;
+
+    // View products
+    private bool isViewProductsOpen = false;
+    private Categoria? viewingCategory;
+    private List<Producto>? viewingProducts;
 
     protected override async Task OnInitializedAsync()
     {
@@ -155,6 +223,15 @@
     {
         deletingItem = cat;
         isDeleteModalOpen = true;
+    }
+
+    private async Task OpenViewProducts(Categoria cat)
+    {
+        viewingCategory = cat;
+        viewingProducts = null;
+        isViewProductsOpen = true;
+        var all = await Data.GetProductosAsync();
+        viewingProducts = all.Where(p => p.CategoryId == cat.Id).OrderBy(p => p.Name).ToList();
     }
 
     private async Task ConfirmDelete()

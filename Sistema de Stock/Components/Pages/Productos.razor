@@ -5,7 +5,7 @@
 @inject DataService Data
 @inject NotificationService Notifications
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+<div class="max-w-7xl mx-auto pb-8">
     
     <!-- Header -->
     <div class="flex flex-col lg:flex-row lg:items-end justify-between mb-8 gap-4">
@@ -58,7 +58,7 @@
     }
     else
     {
-        <div class="premium-card overflow-hidden">
+        <div class="premium-card">
             <div class="overflow-x-auto">
                 <table class="w-full text-left whitespace-nowrap">
                     <thead>
@@ -162,7 +162,13 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1">SKU (Opcional, se autogenera)</label>
-                <InputText @bind-Value="editingItem.SKU" placeholder="Ej: mt150" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
+                <InputText @bind-Value="editingItem.SKU" @bind-Value:after="ClearSkuError" placeholder="Ej: mt150" class="@SkuInputClass" />
+                @if (!string.IsNullOrEmpty(skuErrorMsg))
+                {
+                    <span class="text-[var(--color-danger)] text-xs mt-1 flex items-center gap-1">
+                        <i class="bi bi-exclamation-circle-fill"></i> @skuErrorMsg
+                    </span>
+                }
             </div>
 
             <div>
@@ -592,6 +598,10 @@
     private bool isEditMode = false;
     private Producto editingItem = new();
     private Producto? deletingItem;
+    private string skuErrorMsg = "";
+    private string SkuInputClass => string.IsNullOrEmpty(skuErrorMsg)
+        ? "w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
+        : "w-full bg-black/20 border border-[var(--color-danger)] rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-danger)] focus:ring-1 focus:ring-[var(--color-danger)]";
 
     // Ajuste de Precios
     private bool isAjusteModalOpen = false;
@@ -732,11 +742,23 @@
             editingItem.SKU = await GenerarSKUAutomaticoAsync(editingItem.Name);
         }
 
+        // Validar unicidad de SKU
+        if (!string.IsNullOrWhiteSpace(editingItem.SKU))
+        {
+            bool existe = await Data.ExisteProductoPorSKUAsync(editingItem.SKU.Trim(), editingItem.Id);
+            if (existe)
+            {
+                skuErrorMsg = $"El SKU '{editingItem.SKU}' ya está en uso por otro producto.";
+                return;
+            }
+        }
+
         try
         {
             await Data.SaveProductoAsync(editingItem);
             var msg = isEditMode ? $"'{editingItem.Name}' actualizado." : $"'{editingItem.Name}' agregado al inventario.";
             Notifications.Success(msg);
+            skuErrorMsg = "";
             isModalOpen = false;
             await LoadData();
         }
@@ -745,6 +767,8 @@
             Notifications.Error($"Error al guardar producto: {ex.Message}");
         }
     }
+
+    private void ClearSkuError() => skuErrorMsg = "";
 
     private async Task<string> GenerarSKUAutomaticoAsync(string nombre)
     {
