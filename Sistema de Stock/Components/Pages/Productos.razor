@@ -37,7 +37,10 @@
     <div class="premium-card p-4 mb-6 flex items-center">
         <div class="relative flex-1 max-w-md">
             <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            <input type="text" @bind="searchQuery" @bind:event="oninput" placeholder="Buscar por nombre, SKU o categoría..." class="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--color-primary)] transition-all" />
+            <input @ref="searchInput" type="text" @bind="searchQuery" @bind:event="oninput" 
+                   @onkeydown="HandleSearchKeydown"
+                   placeholder="Escanear código o buscar..." 
+                   class="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--color-primary)] transition-all" />
         </div>
     </div>
 
@@ -158,6 +161,15 @@
                 <label class="block text-sm font-medium text-gray-300 mb-1">Nombre *</label>
                 <InputText @bind-Value="editingItem.Name" autofocus class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
                 <ValidationMessage For="() => editingItem.Name" class="text-[var(--color-danger)] text-xs mt-1 block" />
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Código de Barras <span class="text-gray-500">(Opcional)</span></label>
+                <div class="relative">
+                    <i class="bi bi-upc-scan absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <InputText @bind-Value="editingItem.CodigoBarras" placeholder="Escanear o ingresar código" class="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
+                </div>
+                <ValidationMessage For="() => editingItem.CodigoBarras" class="text-[var(--color-danger)] text-xs mt-1 block" />
             </div>
 
             <div>
@@ -567,6 +579,7 @@
     private List<Categoria> categorias = new();
     private bool isLoading = true;
     private int totalItems = 0;
+    private ElementReference searchInput;
     
     // Search & Pagination
     private string _searchQuery = "";
@@ -651,6 +664,14 @@
         await LoadData();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { await searchInput.FocusAsync(); } catch { }
+        }
+    }
+
     private void SearchTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
     {
         currentPage = 1;
@@ -667,6 +688,33 @@
         
         isLoading = false;
         StateHasChanged();
+
+        // Re-enfocar después de cargar si no hay modal abierto
+        if (!isModalOpen && !isDeleteModalOpen)
+        {
+            await Task.Delay(50);
+            try { await searchInput.FocusAsync(); } catch { }
+        }
+    }
+
+    private async Task HandleSearchKeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery)) return;
+
+            // Intentar encontrar coincidencia exacta para abrir edición rápido
+            var exactMatch = (await Data.GetProductosAsync())
+                .FirstOrDefault(p => 
+                    (p.CodigoBarras != null && p.CodigoBarras.Equals(searchQuery, StringComparison.OrdinalIgnoreCase)) ||
+                    (p.SKU != null && p.SKU.Equals(searchQuery, StringComparison.OrdinalIgnoreCase)));
+
+            if (exactMatch != null)
+            {
+                searchQuery = "";
+                OpenEdit(exactMatch);
+            }
+        }
     }
 
     private string GetCategoryName(Guid id)
@@ -699,6 +747,7 @@
         { 
             Id = item.Id, 
             Name = item.Name, 
+            CodigoBarras = item.CodigoBarras,
             SKU = item.SKU, 
             CategoryId = item.CategoryId, 
             Price = item.Price, 

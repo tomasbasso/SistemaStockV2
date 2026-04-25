@@ -28,8 +28,8 @@
         </div>
     }
 
-    <!-- Contenedor de la cámara — siempre en el DOM para que html5-qrcode pueda montarse -->
-    <div id="@_elementId" class="@(_started && _error == null ? "block" : "hidden") rounded-2xl overflow-hidden"></div>
+    <!-- Contenedor de la cámara — debe estar visible para que html5-qrcode pueda calcular dimensiones -->
+    <div id="@_elementId" class="@(_error == null ? "block" : "hidden") rounded-2xl overflow-hidden @(!_started ? "opacity-0 h-0" : "opacity-100") transition-opacity duration-300"></div>
 </div>
 
 @code {
@@ -63,10 +63,15 @@
     }
 
     [JSInvokable]
-    public async Task OnBarcodeScanned(string barcode)
+    public void OnScannerStarted()
     {
         _started = true;
         StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnBarcodeScanned(string barcode)
+    {
         await OnScanned.InvokeAsync(barcode);
     }
 
