@@ -196,6 +196,18 @@ namespace Sistema_de_Stock.Data
                     command.CommandText = "ALTER TABLE Productos ADD COLUMN Ubicacion TEXT NOT NULL DEFAULT '';";
                     await command.ExecuteNonQueryAsync();
                 }
+                // ── CodigoBarras: Productos ───────────────────────────────────
+                command.CommandText = "PRAGMA table_info(Productos);";
+                bool hasCodigoBarras = false;
+                using (var r = await command.ExecuteReaderAsync())
+                    while (await r.ReadAsync())
+                        if (string.Equals(r.GetString(1), "CodigoBarras", StringComparison.OrdinalIgnoreCase))
+                        { hasCodigoBarras = true; break; }
+                if (!hasCodigoBarras)
+                {
+                    command.CommandText = "ALTER TABLE Productos ADD COLUMN CodigoBarras TEXT NULL;";
+                    await command.ExecuteNonQueryAsync();
+                }
 
                 // Crear tablas de Presupuestos si no existen
                 command.CommandText = @"

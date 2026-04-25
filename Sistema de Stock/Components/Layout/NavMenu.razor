@@ -1,82 +1,94 @@
-﻿<nav class="flex-1 px-4 py-6 space-y-8 overflow-y-auto custom-scrollbar">
-    <!-- Dashboard -->
-    <div class="space-y-1 mb-4">
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-primary)] rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-speedometer2 mr-4 text-lg group-[.active]:text-[var(--color-primary)]"></i>
-            <span class="font-medium">Dashboard</span>
-        </NavLink>
-    </div>
+<style>
+    .sidebar-link-custom {
+        color: #ffffff !important;
+        opacity: 0.75;
+    }
+    .sidebar-link-custom:hover {
+        opacity: 1;
+        color: #ffffff !important;
+    }
+    .active.sidebar-link-custom {
+        background-color: #ffffff !important;
+        color: var(--color-primary) !important;
+        opacity: 1;
+        font-weight: 700 !important;
+        border-color: transparent !important;
+    }
+    .active.sidebar-link-custom i {
+        color: var(--color-primary) !important;
+    }
+</style>
 
-    <!-- Catálogo -->
+<nav class="flex-1 px-4 py-4 space-y-6 overflow-y-auto overflow-x-hidden">
     <div class="space-y-1">
-        <p class="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3">Catálogo</p>
-        
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="productos">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-primary)] rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-box-fill mr-4 text-lg group-[.active]:text-[var(--color-primary)]"></i>
-            <span class="font-medium">Productos</span>
-        </NavLink>
-
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="categorias">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-primary)] rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-tags-fill mr-4 text-lg group-[.active]:text-[var(--color-primary)]"></i>
-            <span class="font-medium">Categorías</span>
-        </NavLink>
-
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="variacion-precios">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-primary)] rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-graph-up-arrow mr-4 text-lg group-[.active]:text-[var(--color-primary)]"></i>
-            <span class="font-medium">Inventario</span>
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="" Match="NavLinkMatch.All">
+            <i class="bi bi-speedometer2 text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Dashboard</span>
         </NavLink>
     </div>
 
-    <!-- Operaciones -->
     <div class="space-y-1">
-        <p class="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3">Operaciones</p>
-        
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="ventas">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-secondary)] rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-cart-fill mr-4 text-lg group-[.active]:text-[var(--color-secondary)]"></i>
-            <span class="font-medium">Ventas</span>
+        <p class="px-5 text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none">Catálogo</p>
+
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="productos">
+            <i class="bi bi-box-fill text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Productos</span>
         </NavLink>
 
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="presupuestos">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-warning)] rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-file-earmark-text-fill mr-4 text-lg group-[.active]:text-[var(--color-warning)]"></i>
-            <span class="font-medium">Presupuestos</span>
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="categorias">
+            <i class="bi bi-tags-fill text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Categorías</span>
         </NavLink>
-        
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="finanzas">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-success)] rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-cash-stack mr-4 text-lg group-[.active]:text-[var(--color-success)]"></i>
-            <span class="font-medium">Finanzas</span>
+
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="variacion-precios">
+            <i class="bi bi-graph-up-arrow text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Inventario</span>
         </NavLink>
     </div>
 
-    <!-- Personas -->
+    <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="scanner">
+    <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-primary)] rounded-r-md transition-all group-[.active]:h-6"></span>
+    <i class="bi bi-upc-scan mr-4 text-lg group-[.active]:text-[var(--color-primary)]"></i>
+    <span class="font-medium">Scanner</span>
+</NavLink>
+
     <div class="space-y-1">
-        <p class="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3">Personas</p>
-        
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="clientes">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-primary)] rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-people-fill mr-4 text-lg group-[.active]:text-[var(--color-primary)]"></i>
-            <span class="font-medium">Clientes</span>
+        <p class="px-5 text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none">Operaciones</p>
+
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="ventas">
+            <i class="bi bi-cart-fill text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Ventas</span>
+        </NavLink>
+
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="presupuestos">
+            <i class="bi bi-file-earmark-text-fill text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Presupuestos</span>
+        </NavLink>
+
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="finanzas">
+            <i class="bi bi-cash-stack text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Finanzas</span>
         </NavLink>
     </div>
 
-    <!-- Sistema -->
-    <div class="space-y-1 pt-4 border-t border-white/5">
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="reportes">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-[var(--color-primary)] rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-file-earmark-bar-graph-fill mr-4 text-lg group-[.active]:text-[var(--color-primary)]"></i>
-            <span class="font-medium">Reportes</span>
+    <div class="space-y-1">
+        <p class="px-5 text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none">Personas</p>
+
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="clientes">
+            <i class="bi bi-people-fill text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Clientes</span>
         </NavLink>
-        
-        <NavLink class="group flex items-center px-4 py-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-all w-full relative" href="configuracion">
-            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 bg-gray-400 rounded-r-md transition-all group-[.active]:h-6"></span>
-            <i class="bi bi-gear-fill mr-4 text-lg group-[.active]:text-gray-400"></i>
-            <span class="font-medium">Configuración</span>
+    </div>
+
+    <div class="space-y-1 pt-4 border-t border-white/15">
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="reportes">
+            <i class="bi bi-file-earmark-bar-graph-fill text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Reportes</span>
+        </NavLink>
+
+        <NavLink class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm" href="configuracion">
+            <i class="bi bi-gear-fill text-[1rem] shrink-0"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Configuración</span>
         </NavLink>
     </div>
 </nav>

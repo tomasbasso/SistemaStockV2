@@ -1,64 +1,66 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @using Sistema_de_Stock.Services
 @using Sistema_de_Stock.Components.Shared
 @inject DataService Data
 @inject BackupService Backup
+@inject IJSRuntime JSRuntime
 
-<div class="min-h-screen bg-[var(--color-base)] text-white flex select-none">
+<div class="min-h-screen bg-[var(--color-bg)] text-[var(--color-ink)] flex select-none relative">
 
-    <!-- Fixed Glass Sidebar -->
-    <aside class="w-[260px] fixed inset-y-0 left-0 z-50 glass-panel border-r border-white/5 flex flex-col">
-        
-        <!-- Header / Logo -->
-        <div class="h-20 flex items-center px-6 border-b border-white/5">
-            <div class="w-10 h-10 rounded-xl bg-[var(--color-primary)]/20 flex items-center justify-center mr-3 text-[var(--color-primary)]">
-                <i class="bi bi-box-seam text-xl"></i>
-            </div>
-            <div>
-                <h1 class="font-semibold text-lg tracking-tight">@(nombreNegocio ?? "Cargando...")</h1>
-                <p class="text-xs text-gray-400">Panel de Control</p>
+    <aside class="group w-[88px] hover:w-[286px] transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-50 bg-[var(--color-sidebar)] flex flex-col shadow-lg shadow-[rgba(37,99,235,0.20)] overflow-x-hidden">
+        <div class="px-[10px] group-hover:px-4 pt-5 pb-4 border-b border-white/15 overflow-hidden transition-all duration-300">
+            <div class="flex items-center gap-3 w-[56px] group-hover:w-[254px] transition-all duration-300 overflow-hidden">
+                <div class="w-10 h-10 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                    <i class="bi bi-shop text-xl text-white"></i>
+                </div>
+                <div class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 min-w-0">
+                    <p class="text-[10px] font-extrabold uppercase tracking-[0.24em] text-white/50 truncate">Sistema de Stock</p>
+                    <p class="text-[0.95rem] font-bold text-white truncate">@(nombreNegocio ?? "Mi Negocio")</p>
+                </div>
             </div>
         </div>
 
-        <!-- Navigation Menu -->
-        <div class="flex-1 overflow-y-auto py-6">
+        <div class="flex-1 overflow-y-auto overflow-x-hidden pt-4 pb-3">
             <NavMenu />
         </div>
-        
-        <!-- User Profile / Footer (Optional) -->
-        <div class="p-6 border-t border-white/5 flex items-center">
-            <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-3">
-                <i class="bi bi-person-fill text-gray-300"></i>
+
+        <div class="mx-4 mb-4 rounded-2xl border border-white/15 bg-[rgba(255,255,255,0.08)] px-[10px] group-hover:px-4 py-3 overflow-hidden transition-all duration-300 flex items-center gap-3 w-[56px] group-hover:w-[254px]">
+            <div class="w-9 h-9 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <i class="bi bi-person-badge text-white text-[1rem]"></i>
             </div>
-            <div>
-                <p class="text-sm font-medium">Administrador</p>
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest">Activo</p>
+            <div class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <p class="text-[0.9rem] font-bold text-white">Administrador</p>
+                <p class="text-[10px] uppercase tracking-[0.24em] text-white/55">Sesión local</p>
             </div>
         </div>
-
     </aside>
 
-    <!-- Main Content Area (Offset by sidebar width) -->
-    <main class="flex-1 ml-[260px] flex flex-col min-h-screen">
-        
-        <!-- Top Navigation Bar (Optional, for notifications/search) -->
-        <header class="h-20 border-b border-white/5 glass-panel sticky top-0 z-40 px-8 flex items-center justify-between">
-            <div class="text-gray-400">
-                <!-- Can be dynamic based on current page -->
-                <span class="text-sm font-medium">Bienvenido</span>
+    <main class="flex-1 ml-[88px] flex flex-col min-h-screen transition-all duration-300">
+        <header class="sticky top-0 z-40 bg-[var(--color-surface)] border-b border-[var(--color-border)] px-8 py-4 flex items-center justify-between gap-6">
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-[0.26em] text-[var(--color-muted)]">Panel General</p>
+                <div class="flex items-center gap-3 mt-1">
+                    <h2 class="text-lg font-extrabold text-[var(--color-ink)]">Bienvenido</h2>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)]/10 px-3 py-1 text-xs font-bold text-[var(--color-primary)]">
+                        <span class="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]"></span>
+                        Comercio minorista
+                    </span>
+                </div>
             </div>
-            <div class="flex items-center gap-4">
-                <button class="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center text-gray-300">
+            <div class="flex items-center gap-3">
+                <button @onclick="ToggleTheme" title="Cambiar Tema" class="h-10 w-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] hover:bg-[var(--color-primary)]/8 transition-colors flex items-center justify-center text-[var(--color-muted)] hover:text-[var(--color-primary)]">
+                    <i class="bi @(isDarkMode ? "bi-moon-stars-fill text-blue-500" : "bi-sun-fill text-amber-500")"></i>
+                </button>
+                <button class="h-10 w-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] hover:bg-[var(--color-primary)]/8 transition-colors flex items-center justify-center text-[var(--color-muted)] hover:text-[var(--color-primary)]">
                     <i class="bi bi-bell"></i>
                 </button>
             </div>
         </header>
 
-        <!-- Content Body -->
-        <article class="p-8 flex-1 animate-fade-in relative z-0">
+        <article class="p-8 pt-6 flex-1 animate-fade-in">
             @Body
         </article>
-        
     </main>
 
 </div>
@@ -68,18 +70,52 @@
 <div id="blazor-error-ui">
     An unhandled error has occurred.
     <a href="" class="reload">Reload</a>
-    <a class="dismiss">??</a>
+    <a class="dismiss">✕</a>
 </div>
+
+<GlobalSearchModal @ref="searchModal" />
 
 @code {
     private string? nombreNegocio = null;
+    private bool isDarkMode = false;
+    private GlobalSearchModal searchModal = default!;
+    private DotNetObjectReference<MainLayout>? objRef;
+
+    [JSInvokable]
+    public async Task OpenGlobalSearch()
+    {
+        if (searchModal != null)
+            await searchModal.Show();
+    }
 
     protected override async Task OnInitializedAsync()
     {
+        objRef = DotNetObjectReference.Create(this);
         var config = await Data.GetConfiguracionAsync();
         nombreNegocio = config?.NombreNegocio ?? "Sistema de Stock";
 
-        // Disparo en segundo plano para no bloquear la UI
+        // Mantiene el respaldo automatico sin bloquear la carga inicial.
         _ = Task.Run(() => Backup.CheckAndRunAutoBackupAsync());
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("appUI.registerLayout", objRef);
+            isDarkMode = await JSRuntime.InvokeAsync<bool>("appUI.initTheme");
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        isDarkMode = !isDarkMode;
+        await JSRuntime.InvokeVoidAsync("appUI.toggleDarkMode", isDarkMode);
+    }
+    
+    public void Dispose()
+    {
+        objRef?.Dispose();
     }
 }

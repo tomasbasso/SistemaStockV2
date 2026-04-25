@@ -28,7 +28,104 @@
     </div>
 
     <script src="_framework/blazor.webview.js" autostart="false"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Funciones UI Globales
+        window.appUI = {
+            layoutRef: null,
+            registerLayout: function(ref) {
+                this.layoutRef = ref;
+            },
+            toggleDarkMode: function(isDark) {
+                if (isDark) {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                }
+            },
+            initTheme: function() {
+                var theme = localStorage.getItem('theme');
+                if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                    return true;
+                }
+                return false;
+            },
+            initChart: function(canvasId, labels, data) {
+                const ctx = document.getElementById(canvasId);
+                if (!ctx) return;
+                
+                // Intentamos capturar el color CSS si es posible, sino default navy
+                let primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
+                if (!primaryColor || primaryColor === '') primaryColor = '#1E293B';
+                
+                // Destruir chart previo si existe por recarga
+                if (window.appUI['chart_' + canvasId]) {
+                    window.appUI['chart_' + canvasId].destroy();
+                }
 
+                window.appUI['chart_' + canvasId] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Ingresos',
+                            data: data,
+                            borderColor: primaryColor,
+                            backgroundColor: 'rgba(30, 41, 59, 0.05)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: primaryColor,
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { 
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                titleFont: { size: 13, family: 'Inter' },
+                                bodyFont: { size: 14, weight: 'bold', family: 'Inter' },
+                                padding: 12,
+                                cornerRadius: 8,
+                                displayColors: false
+                            }
+                        },
+                        scales: { 
+                            y: { 
+                                beginAtZero: true, 
+                                grid: { color: 'rgba(150, 150, 150, 0.1)', borderDash: [5, 5] },
+                                border: { display: false }
+                            },
+                            x: { 
+                                grid: { display: false },
+                                border: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+        };
+
+        // Command Palette (Fase 3 trigger)
+        window.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                if (window.appUI.layoutRef) {
+                    window.appUI.layoutRef.invokeMethodAsync('OpenGlobalSearch');
+                }
+            }
+        });
+    </script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="js/barcode-scanner.js"></script>
 </body>
-
 </html>

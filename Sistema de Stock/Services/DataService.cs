@@ -69,10 +69,8 @@ namespace Sistema_de_Stock.Services
             await _db.SaveChangesAsync();
         }
 
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // CATEGORÃAS
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+        // CATEGORIAS
+        
         public async Task<List<Categoria>> GetCategoriasAsync()
             => await _db.Categorias.OrderBy(c => c.Name).ToListAsync();
 
@@ -97,10 +95,8 @@ namespace Sistema_de_Stock.Services
             }
         }
 
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // PRODUCTOS
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+        
         public async Task<List<Producto>> GetProductosAsync()
             => await _db.Productos.OrderBy(p => p.Name).ToListAsync();
 
@@ -167,7 +163,24 @@ namespace Sistema_de_Stock.Services
             }
             await _db.SaveChangesAsync();
         }
+            public async Task<Producto?> GetProductoPorCodigoBarrasAsync(string codigoBarras)
+                => await _db.Productos
+                    .FirstOrDefaultAsync(p => p.CodigoBarras != null && p.CodigoBarras == codigoBarras);
 
+            public async Task AsignarCodigoBarrasAsync(Guid productoId, string codigoBarras)
+            {
+                // Verificar que el código no esté ya usado por otro producto
+                var existente = await _db.Productos
+                    .FirstOrDefaultAsync(p => p.CodigoBarras == codigoBarras && p.Id != productoId);
+                if (existente != null)
+                    throw new InvalidOperationException($"El código '{codigoBarras}' ya está asignado a '{existente.Name}'.");
+
+                var producto = await _db.Productos.FindAsync(productoId)
+                    ?? throw new InvalidOperationException("Producto no encontrado.");
+
+                producto.CodigoBarras = codigoBarras;
+                await _db.SaveChangesAsync();
+            }
         public async Task AjustarPreciosPorcentajeAsync(List<Guid> productoIds, decimal porcentaje)
         {
             var productos = await _db.Productos.Where(p => productoIds.Contains(p.Id)).ToListAsync();
@@ -186,6 +199,7 @@ namespace Sistema_de_Stock.Services
         /// Si ya existe un producto con el mismo SKU, actualiza precio y nombre.
         /// Devuelve Result con (importados, actualizados, errores).
         /// </summary>
+        /// 
         public async Task<Result<(int Importados, int Actualizados, List<string> Errores)>> ImportarProductosDesdeExcelAsync(Stream stream, Guid categoriaDefaultId)
         {
             int importados = 0, actualizados = 0;
@@ -278,7 +292,7 @@ namespace Sistema_de_Stock.Services
             return Result<(int, int, List<string>)>.Ok((importados, actualizados, errores));
         }
 
-        // â”€â”€ Presupuestos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Presupuestos 
         public async Task<List<Presupuesto>> GetPresupuestosAsync()
             => await _db.Presupuestos.OrderByDescending(p => p.Date).ToListAsync();
 
