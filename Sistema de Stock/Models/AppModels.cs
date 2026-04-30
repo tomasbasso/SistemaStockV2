@@ -3,7 +3,26 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Sistema_de_Stock.Models
 {
-    public class Categoria
+    // =========================================================================
+    // Interfaz base para todas las entidades multi-tenant
+    // =========================================================================
+
+    /// <summary>
+    /// Contrato que deben cumplir todas las entidades de negocio.
+    /// TenantId separa los datos entre distintos negocios (tenants).
+    /// UpdatedAt permite tracking para el cache offline.
+    /// </summary>
+    public interface ITenantEntity
+    {
+        Guid TenantId  { get; set; }
+        DateTime UpdatedAt { get; set; }
+    }
+
+    // =========================================================================
+    // Entidades del dominio
+    // =========================================================================
+
+    public class Categoria : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -11,9 +30,13 @@ namespace Sistema_de_Stock.Models
         [Required(ErrorMessage = "El nombre de la categoría es obligatorio.")]
         [MaxLength(100, ErrorMessage = "El nombre no puede superar 100 caracteres.")]
         public string Name { get; set; } = string.Empty;
+
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class Producto
+    public class Producto : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -36,7 +59,7 @@ namespace Sistema_de_Stock.Models
         [Range(0, int.MaxValue, ErrorMessage = "El stock mínimo no puede ser negativo.")]
         public int StockMinimo { get; set; } = 0;
 
-       [Required]
+        [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor a cero.")]
         public decimal Price { get; set; } = 0;
 
@@ -52,13 +75,18 @@ namespace Sistema_de_Stock.Models
 
         [MaxLength(100, ErrorMessage = "La ubicación no puede superar 100 caracteres.")]
         public string Ubicacion { get; set; } = string.Empty;
+
         [MaxLength(50, ErrorMessage = "El código de barras no puede superar 50 caracteres.")]
-public string? CodigoBarras { get; set; }
+        public string? CodigoBarras { get; set; }
 
         public bool IsDeleted { get; set; } = false;
+
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class Cliente
+    public class Cliente : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -85,9 +113,13 @@ public string? CodigoBarras { get; set; }
         public CondicionIva CondicionIva { get; set; } = CondicionIva.ConsumidorFinal;
 
         public bool IsDeleted { get; set; } = false;
+
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class CuentaCorriente
+    public class CuentaCorriente : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -95,7 +127,11 @@ public string? CodigoBarras { get; set; }
         [Required]
         public Guid ClienteId { get; set; }
 
-        public decimal Balance { get; set; } = 0; // Positivo = deuda del cliente; negativo = a favor del cliente
+        public decimal Balance { get; set; } = 0; // Positivo = deuda del cliente; negativo = a favor
+
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
     public enum TipoMovimiento
@@ -104,7 +140,7 @@ public string? CodigoBarras { get; set; }
         Egreso
     }
 
-    public class MovimientoFinanciero
+    public class MovimientoFinanciero : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -120,23 +156,30 @@ public string? CodigoBarras { get; set; }
         public string Description { get; set; } = string.Empty;
 
         public Guid? VentaId { get; set; }
+
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class Venta
+    public class Venta : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        public int NumeroVenta { get; set; }
-        public DateTime Date { get; set; } = DateTime.Now;
-        public decimal Total { get; set; }
-        public Guid? ClienteId { get; set; }
-        public bool IsFiado { get; set; } = false;
+        public int      NumeroVenta { get; set; }
+        public DateTime Date        { get; set; } = DateTime.Now;
+        public decimal  Total       { get; set; }
+        public Guid?    ClienteId   { get; set; }
+        public bool     IsFiado     { get; set; } = false;
+        public bool     IsDeleted   { get; set; } = false;
 
-        public bool IsDeleted { get; set; } = false;
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class VentaDetalle
+    public class VentaDetalle : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -151,26 +194,34 @@ public string? CodigoBarras { get; set; }
         public int Quantity { get; set; }
 
         public decimal UnitPrice { get; set; }
+
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class Presupuesto
+    public class Presupuesto : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        public int NumeroPresupuesto { get; set; }
-        public DateTime Date { get; set; } = DateTime.Now;
-        public DateTime? FechaVencimiento { get; set; }
-        public decimal Total { get; set; }
-        public Guid? ClienteId { get; set; }
+        public int       NumeroPresupuesto { get; set; }
+        public DateTime  Date              { get; set; } = DateTime.Now;
+        public DateTime? FechaVencimiento  { get; set; }
+        public decimal   Total             { get; set; }
+        public Guid?     ClienteId         { get; set; }
 
         [MaxLength(500)]
         public string Notas { get; set; } = string.Empty;
 
         public bool IsDeleted { get; set; } = false;
+
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class PresupuestoDetalle
+    public class PresupuestoDetalle : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -185,9 +236,13 @@ public string? CodigoBarras { get; set; }
         public int Quantity { get; set; }
 
         public decimal UnitPrice { get; set; }
+
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class ConfiguracionApp
+    public class ConfiguracionApp : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -205,13 +260,16 @@ public string? CodigoBarras { get; set; }
         [MaxLength(50)]
         public string Telefono { get; set; } = string.Empty;
 
-        // Umbrales configurables para rotación y alertas
-        public decimal UmbralRotacionBaja { get; set; } = 1.0m;
+        public decimal UmbralRotacionBaja  { get; set; } = 1.0m;
         public decimal UmbralRotacionMedia { get; set; } = 4.0m;
-        public int DiasAlertaSinVenta { get; set; } = 90;
+        public int     DiasAlertaSinVenta  { get; set; } = 90;
+
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
-    public class HistorialPrecio
+    public class HistorialPrecio : ITenantEntity
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -224,36 +282,47 @@ public string? CodigoBarras { get; set; }
         public string ProductoNombre { get; set; } = string.Empty;
 
         public DateTime FechaModificacion { get; set; } = DateTime.Now;
+        public decimal  PrecioAnterior    { get; set; }
+        public decimal  PrecioNuevo       { get; set; }
 
-        public decimal PrecioAnterior { get; set; }
-        public decimal PrecioNuevo { get; set; }
+        // ── Multi-tenant ──────────────────────────────────────────────────────
+        public Guid     TenantId  { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
+
+    // =========================================================================
+    // DTOs (sin persistencia, no necesitan TenantId)
+    // =========================================================================
 
     public class RotacionProductoDto
     {
-        public Guid ProductoId { get; set; }
-        public string Nombre { get; set; } = string.Empty;
-        public string Categoria { get; set; } = string.Empty;
-        public int UnidadesVendidas12m { get; set; }
-        public decimal StockActual { get; set; }
-        public decimal Rotacion { get; set; }
-        public DateTime? UltimaVenta { get; set; }
-        public int DiasSinVenta { get; set; }
-        public decimal ValorInmovilizado { get; set; }
-        public decimal MargenUnitario { get; set; }
-        public string Tendencia { get; set; } = "→";
-        public string EstadoRotacion { get; set; } = "Sin rotación";
-        public string AccionSugerida { get; set; } = "";
+        public Guid     ProductoId         { get; set; }
+        public string   Nombre             { get; set; } = string.Empty;
+        public string   Categoria          { get; set; } = string.Empty;
+        public int      UnidadesVendidas12m { get; set; }
+        public decimal  StockActual        { get; set; }
+        public decimal  Rotacion           { get; set; }
+        public DateTime? UltimaVenta       { get; set; }
+        public int      DiasSinVenta       { get; set; }
+        public decimal  ValorInmovilizado  { get; set; }
+        public decimal  MargenUnitario     { get; set; }
+        public string   Tendencia          { get; set; } = "→";
+        public string   EstadoRotacion     { get; set; } = "Sin rotación";
+        public string   AccionSugerida     { get; set; } = "";
     }
 
+    // =========================================================================
+    // Enums
+    // =========================================================================
+
     public enum CondicionIva
-{
-    ResponsableInscripto = 0,
-    Monotributista = 1,
-    MonotributoSocial = 2,
-    Exento = 3,
-    ConsumidorFinal = 4,
-    NoResponsable = 5,
-    SujetoNoCategorizado = 6
-}
+    {
+        ResponsableInscripto   = 0,
+        Monotributista         = 1,
+        MonotributoSocial      = 2,
+        Exento                 = 3,
+        ConsumidorFinal        = 4,
+        NoResponsable          = 5,
+        SujetoNoCategorizado   = 6
+    }
 }

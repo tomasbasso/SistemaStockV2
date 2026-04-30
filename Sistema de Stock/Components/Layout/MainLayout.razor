@@ -5,8 +5,22 @@
 @inject DataService Data
 @inject BackupService Backup
 @inject IJSRuntime JSRuntime
+@inject TenantService TenantService
+@inject ConnectivityService Connectivity
 
-<div class="min-h-screen bg-[var(--color-bg)] text-[var(--color-ink)] flex select-none relative">
+<div class="min-h-screen bg-[var(--color-bg)] text-[var(--color-ink)] flex select-none relative flex-col">
+
+    <!-- Banner Offline -->
+    @if (!Connectivity.IsOnline)
+    {
+        <div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#f093fb,#f5576c);
+                    color:#fff;text-align:center;padding:0.5rem 1rem;font-size:0.85rem;font-weight:600;
+                    display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+            <span>📵</span> Modo sin internet — Solo lectura. Los cambios no están disponibles.
+        </div>
+    }
+
+<div class="min-h-screen bg-[var(--color-bg)] text-[var(--color-ink)] flex select-none relative" style="@(Connectivity.IsOnline ? "" : "margin-top:36px")">
 
     <aside class="group w-[88px] hover:w-[286px] transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-50 bg-[var(--color-sidebar)] flex flex-col shadow-lg shadow-[rgba(37,99,235,0.20)] overflow-x-hidden">
         <div class="px-[10px] group-hover:px-4 pt-5 pb-4 border-b border-white/15 overflow-hidden transition-all duration-300">
@@ -30,10 +44,15 @@
                 <i class="bi bi-person-badge text-white text-[1rem]"></i>
             </div>
             <div class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <p class="text-[0.9rem] font-bold text-white">Administrador</p>
-                <p class="text-[10px] uppercase tracking-[0.24em] text-white/55">Sesión local</p>
+                <p class="text-[0.9rem] font-bold text-white">@TenantService.TenantName</p>
+                <p class="text-[10px] uppercase tracking-[0.24em] text-white/55">@TenantService.CurrentEmail</p>
+                <button @onclick="HandleLogout"
+                        style="background:none;border:none;color:rgba(255,255,255,0.5);font-size:0.75rem;cursor:pointer;padding:0;margin-top:2px;">
+                    Cerrar sesión
+                </button>
             </div>
         </div>
+
     </aside>
 
     <main class="flex-1 ml-[88px] flex flex-col min-h-screen transition-all duration-300">
@@ -63,6 +82,7 @@
         </article>
     </main>
 
+</div>
 </div>
 
 <ToastContainer />
@@ -114,6 +134,13 @@
         await JSRuntime.InvokeVoidAsync("appUI.toggleDarkMode", isDarkMode);
     }
     
+    private async Task HandleLogout()
+    {
+        await TenantService.ClearSessionAsync();
+        // Forzar recarga para volver al guard de autenticación
+        await JSRuntime.InvokeVoidAsync("location.reload");
+    }
+
     public void Dispose()
     {
         objRef?.Dispose();

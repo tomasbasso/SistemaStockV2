@@ -1,3 +1,6 @@
+@inject NavigationManager Navigation
+@inject Sistema_de_Stock.Services.TenantService TenantService
+
 <style>
     .sidebar-link-custom {
         color: #ffffff !important;
@@ -85,5 +88,19 @@
             <i class="bi bi-gear-fill text-[1rem] shrink-0"></i>
             <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">Configuración</span>
         </NavLink>
+
+        <button class="sidebar-link-custom group flex items-center gap-3 px-[18px] group-hover:px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all duration-300 w-[56px] group-hover:w-[254px] overflow-hidden text-[0.95rem] shadow-sm mt-4" @onclick="HandleLogout">
+            <i class="bi bi-box-arrow-right text-[1rem] shrink-0 text-red-400"></i>
+            <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-red-400">Cerrar Sesión</span>
+        </button>
     </div>
 </nav>
+
+@code {
+    private async Task HandleLogout()
+    {
+        await TenantService.ClearSessionAsync();
+        Navigation.NavigateTo("login");
+    }
+}
+

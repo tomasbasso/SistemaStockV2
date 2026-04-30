@@ -35,6 +35,14 @@
         </button>
     </div>
 
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong class="font-bold">Error!</strong>
+            <span class="block sm:inline whitespace-pre-wrap">@ErrorMessage</span>
+        </div>
+    }
+
     @if (isLoading)
     {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -143,7 +151,7 @@
                 </div>
             </div>
             <div class="px-3 pb-3">
-                <DashboardChart Labels="@ChartLabels" Data="@ChartData" />
+                @* <DashboardChart Labels="@ChartLabels" Data="@ChartData" /> *@
             </div>
         </div>
 
@@ -329,23 +337,35 @@
         await JS.InvokeVoidAsync("eval", "if(window.appUI && window.appUI.layoutRef) window.appUI.layoutRef.invokeMethodAsync('OpenGlobalSearch')");
     }
 
+    private string ErrorMessage = string.Empty;
+
     private async Task LoadData()
     {
         isLoading = true;
+        ErrorMessage = string.Empty;
 
-        var data = await Data.GetDashboardDataAsync();
+        try
+        {
+            var data = await Data.GetDashboardDataAsync();
 
-        VentasHoy = data.TotalVentas;
-        CantidadVentasHoy = data.CantidadVentas;
-        TotalDeuda = data.TotalDeuda;
-        ValorInventario = data.ValorInventario;
-        TotalProductos = data.TotalProductos;
-        ProductosBajoStock = data.BajoStock;
-        UltimosMovimientos = data.UltimosMovimientos;
+            VentasHoy = data.TotalVentas;
+            CantidadVentasHoy = data.CantidadVentas;
+            TotalDeuda = data.TotalDeuda;
+            ValorInventario = data.ValorInventario;
+            TotalProductos = data.TotalProductos;
+            ProductosBajoStock = data.BajoStock;
+            UltimosMovimientos = data.UltimosMovimientos;
 
-        RotacionAnual = await Data.CalcularRotacionAnualAsync();
-        TopRotacionBaja = await Data.GetRotacionProductosAsync(null, null, true, 5);
-
-        isLoading = false;
+            RotacionAnual = await Data.CalcularRotacionAnualAsync();
+            TopRotacionBaja = await Data.GetRotacionProductosAsync(null, null, true, 5);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error cargando datos: {ex.Message} \n {ex.StackTrace}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 }

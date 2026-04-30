@@ -7,9 +7,10 @@ namespace Sistema_de_Stock.Data
     /// Contexto principal de Entity Framework Core para la base de datos SQLite de la aplicación.
     /// Define el esquema y el seeding inicial de datos.
     /// </summary>
-    public class StockDbContext : DbContext
+    public class StockDbContext : DbContext, IStockContext
     {
         public StockDbContext(DbContextOptions<StockDbContext> options) : base(options) { }
+        public Guid TenantId => Guid.Empty;
 
         public DbSet<ConfiguracionApp> Configuraciones { get; set; }
         public DbSet<Categoria> Categorias { get; set; }

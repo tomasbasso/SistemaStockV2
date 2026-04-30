@@ -4,7 +4,7 @@
              xmlns:local="clr-namespace:Sistema_de_Stock"
              x:Class="Sistema_de_Stock.MainPage">
 
-    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html" BlazorWebViewInitializing="OnBlazorWebViewInitializing">
+    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html" BlazorWebViewInitialized="OnBlazorWebViewInitialized">
         <BlazorWebView.RootComponents>
             <RootComponent Selector="#app" ComponentType="{x:Type local:Components.Routes}" />
         </BlazorWebView.RootComponents>
