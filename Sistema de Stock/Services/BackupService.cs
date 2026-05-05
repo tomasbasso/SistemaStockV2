@@ -1,63 +1,61 @@
 using CommunityToolkit.Maui.Storage;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Sistema_de_Stock.Data;
 using Sistema_de_Stock.Models;
 using Microsoft.Maui.Storage;
 using System.IO;
+using System.Text.Json;
 using System.Globalization;
 using System.Linq;
 
 namespace Sistema_de_Stock.Services
 {
-    public partial class BackupService
+    public class BackupService
     {
-        private readonly string _dbPath;
+        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly TenantService _tenantService;
+        
         private const string TargetFolderKey = "Backup.TargetFolder";
         private const string LastRunUtcKey = "Backup.LastRunUtc";
         private const string LastCloseUtcKey = "Backup.LastCloseUtc";
         private const int RetentionCount = 15;
 
-        public BackupService()
+        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
-            _dbPath = Path.Combine(FileSystem.AppDataDirectory, "stock.db");
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        };
+
+        public BackupService(IServiceScopeFactory scopeFactory, TenantService tenantService)
+        {
+            _scopeFactory = scopeFactory;
+            _tenantService = tenantService;
         }
 
         public async Task<Result<string>> ExportBackupAsync(CancellationToken cancellationToken = default)
         {
             try
             {
-                if (!File.Exists(_dbPath))
-                    return Result<string>.Fail("No se encontró el archivo de la base de datos.");
+                var tenantId = _tenantService.CurrentTenantId;
+                if (tenantId == Guid.Empty)
+                    return Result<string>.Fail("No hay un negocio (Tenant) activo.");
 
-                // Create a temporary path for the backup
-                var tempBackupPath = Path.Combine(FileSystem.CacheDirectory, $"Backup_Temp_{Guid.NewGuid()}.db");
+                var dto = await BuildExportDtoAsync(tenantId, cancellationToken);
+                var json = JsonSerializer.Serialize(dto, JsonOptions);
 
-                // Use SQLite's online backup API to ensure a fully consistent snapshot
-                // This correctly handles WAL (Write-Ahead Logging) mode, merging everything into one file.
-                using (var sourceConnection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_dbPath}"))
-                using (var destinationConnection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={tempBackupPath}"))
-                {
-                    await sourceConnection.OpenAsync(cancellationToken);
-                    await destinationConnection.OpenAsync(cancellationToken);
+                // Create a temp file to hold the JSON so we can use FileSaver
+                var tempBackupPath = Path.Combine(FileSystem.CacheDirectory, $"Backup_Temp_{Guid.NewGuid()}.json");
+                await File.WriteAllTextAsync(tempBackupPath, json, cancellationToken);
 
-                    sourceConnection.BackupDatabase(destinationConnection);
-                    
-                    // Cerrar explícitamente antes de salir del bloque using
-                    await destinationConnection.CloseAsync();
-                    await sourceConnection.CloseAsync();
-                }
-
-                // Liberar los handles de archivo de SQLite antes de que FileStream intente abrirlo
-                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-                await Task.Delay(200, cancellationToken); // Pequeño respiro para el OS
-
-                var fileName = $"Backup_Stock_{DateTime.Now:yyyyMMdd_HHmm}.db";
+                var fileName = $"Backup_Stock_{DateTime.Now:yyyyMMdd_HHmm}.json";
                 bool isSuccessful = false;
                 Exception? saveException = null;
 
-                // Open the newly created, complete backup file
                 using (var stream = new FileStream(tempBackupPath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    // MAUI dialogs deben ejecutarse en el MainThread
                     try 
                     {
                         var fileSaverResult = await MainThread.InvokeOnMainThreadAsync(async () => 
@@ -72,10 +70,9 @@ namespace Sistema_de_Stock.Services
                     }
                 }
 
-                // Clean up the temporary backup file
                 if (File.Exists(tempBackupPath))
                 {
-                    try { File.Delete(tempBackupPath); } catch { /* Ignore cleanup errors */ }
+                    try { File.Delete(tempBackupPath); } catch { /* Ignore */ }
                 }
 
                 if (saveException != null)
@@ -84,12 +81,11 @@ namespace Sistema_de_Stock.Services
                 if (!isSuccessful)
                     return Result<string>.Fail("La operación fue cancelada por el usuario o falló.");
 
-                return Result<string>.Ok("Backup exportado correctamente");
+                return Result<string>.Ok("Backup exportado correctamente en formato JSON.");
             }
             catch (Exception ex)
             {
-                // Manejar / loguear excepción
-                Console.WriteLine($"Error al exportar: {ex.Message}");
+                Console.WriteLine($"Error al exportar JSON: {ex.Message}");
                 return Result<string>.Fail(ex.Message);
             }
         }
@@ -98,19 +94,21 @@ namespace Sistema_de_Stock.Services
         {
             try
             {
-                // Permitir elegir el archivo .db
+                var tenantId = _tenantService.CurrentTenantId;
+                if (tenantId == Guid.Empty)
+                    return Result<string>.Fail("No hay un negocio (Tenant) activo.");
+
                 var customFileType = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
                 {
-                    { DevicePlatform.WinUI, new[] { ".db", ".sqlite", ".sqlite3" } },
-                    { DevicePlatform.Android, new[] { "application/octet-stream", "application/x-sqlite3" } }
+                    { DevicePlatform.WinUI, new[] { ".json" } },
+                    { DevicePlatform.Android, new[] { "application/json" } }
                 });
 
-                // MAUI dialogs deben ejecutarse en el MainThread
                 var pickResult = await MainThread.InvokeOnMainThreadAsync(async () => 
                 {
                     return await FilePicker.Default.PickAsync(new PickOptions
                     {
-                        PickerTitle = "Selecciona el respaldo a restaurar",
+                        PickerTitle = "Selecciona el respaldo a restaurar (JSON)",
                         FileTypes = customFileType
                     });
                 });
@@ -119,183 +117,205 @@ namespace Sistema_de_Stock.Services
                     return Result<string>.Fail("Cancelado por el usuario");
 
                 string ext = Path.GetExtension(pickResult.FileName).ToLower();
-                if (ext != ".db" && ext != ".sqlite" && ext != ".sqlite3")
-                    return Result<string>.Fail($"El archivo '{pickResult.FileName}' no tiene una extensión válida (.db, .sqlite, .sqlite3)");
+                if (ext != ".json")
+                    return Result<string>.Fail($"El archivo '{pickResult.FileName}' no es un JSON válido.");
 
-                // 1. Limpieza AGRESIVA de conexiones y memoria
-                // Forzamos el GC para que disponga de cualquier DbContext o SqliteConnection que haya quedado boyando
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-
-                // 2. Copiar el archivo elegido a una ubicación temporal de caché
-                var tempPath = Path.Combine(FileSystem.CacheDirectory, "temp_restore.db");
-                
+                string jsonContent;
                 using (var stream = await pickResult.OpenReadAsync())
+                using (var reader = new StreamReader(stream))
                 {
-                    if (stream.Length == 0)
-                        return Result<string>.Fail("El archivo seleccionado está vacío.");
-
-                    using (var tempFile = File.Create(tempPath))
-                    {
-                        await stream.CopyToAsync(tempFile);
-                    }
+                    jsonContent = await reader.ReadToEndAsync();
                 }
 
-                // 3. Reintentos para mover/sobreescribir (evitar "file in use")
-                int retries = 5;
-                bool success = false;
-                string lastError = "";
+                if (string.IsNullOrWhiteSpace(jsonContent))
+                    return Result<string>.Fail("El archivo seleccionado está vacío.");
 
-                while (retries > 0 && !success)
+                var dto = JsonSerializer.Deserialize<BackupExportDto>(jsonContent, JsonOptions);
+                if (dto == null)
+                    return Result<string>.Fail("No se pudo leer el formato del archivo.");
+
+                if (dto.TenantId != tenantId)
                 {
+                    return Result<string>.Fail("Este respaldo pertenece a otro negocio (diferente TenantId). No puedes restaurarlo aquí.");
+                }
+
+                // Restore to database
+                using var scope = _scopeFactory.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<StockOnlineContext>();
+
+                // Execution strategy for resilience (Supabase)
+                var strategy = context.Database.CreateExecutionStrategy();
+                await strategy.ExecuteAsync(async () =>
+                {
+                    using var transaction = await context.Database.BeginTransactionAsync();
                     try
                     {
-                        // Eliminar archivos "sidecar" de SQLite (WAL mode)
-                        string walPath = _dbPath + "-wal";
-                        string shmPath = _dbPath + "-shm";
+                        // 1. Delete existing data for current tenant
+                        // Because we rely on EF Core QueryFilters, simply doing context.Set<T>().ExecuteDeleteAsync() 
+                        // will ONLY delete records for the current TenantId!
+                        
+                        await context.HistorialPrecios.ExecuteDeleteAsync();
+                        await context.PresupuestoDetalles.ExecuteDeleteAsync();
+                        await context.Presupuestos.ExecuteDeleteAsync();
+                        await context.VentaDetalles.ExecuteDeleteAsync();
+                        await context.Ventas.ExecuteDeleteAsync();
+                        await context.MovimientosFinancieros.ExecuteDeleteAsync();
+                        await context.CuentasCorrientes.ExecuteDeleteAsync();
+                        await context.Clientes.ExecuteDeleteAsync();
+                        await context.Productos.ExecuteDeleteAsync();
+                        await context.Categorias.ExecuteDeleteAsync();
+                        await context.Configuraciones.ExecuteDeleteAsync();
 
-                        if (File.Exists(walPath)) File.Delete(walPath);
-                        if (File.Exists(shmPath)) File.Delete(shmPath);
-
-                        // Validar el backup antes de sobrescribir
-                        var validateResult = await ValidateBackupFileAsync(tempPath);
-                        if (!validateResult.Success)
-                            return validateResult;
-
-                        // Sobrescribir base de datos principal
-                        File.Copy(tempPath, _dbPath, overwrite: true);
-                        success = true;
-                    }
-                    catch (IOException)
-                    {
-                        retries--;
-                        if (retries > 0)
-                        {
-                            // Esperar un poco antes de reintentar
-                            await Task.Delay(500); 
-                            // Intentar limpiar pools de nuevo
-                            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+                        // 2. Map and generate NEW Guids for everything to avoid PK collisions across tenants
+                        var catMap = new Dictionary<Guid, Guid>();
+                        var seenCatNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var c in dto.Categorias) { 
+                            var old = c.Id; c.Id = Guid.NewGuid(); catMap[old] = c.Id; 
+                            
+                            if (string.IsNullOrWhiteSpace(c.Name)) c.Name = "Sin Nombre";
+                            int cCount = 1;
+                            string cOrig = c.Name;
+                            while (seenCatNames.Contains(c.Name)) { c.Name = $"{cOrig} {cCount++}"; }
+                            seenCatNames.Add(c.Name);
                         }
+
+                        var prodMap = new Dictionary<Guid, Guid>();
+                        var seenSkus = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var p in dto.Productos) { 
+                            var old = p.Id; p.Id = Guid.NewGuid(); prodMap[old] = p.Id; 
+                            if (catMap.TryGetValue(p.CategoryId, out var nId)) p.CategoryId = nId; 
+                            
+                            if (string.IsNullOrWhiteSpace(p.SKU)) p.SKU = $"SKU-{p.Id.ToString().Substring(0, 8)}";
+                            int sCount = 1;
+                            string sOrig = p.SKU;
+                            while (seenSkus.Contains(p.SKU)) { p.SKU = $"{sOrig}-{sCount++}"; }
+                            seenSkus.Add(p.SKU);
+                        }
+
+                        var cliMap = new Dictionary<Guid, Guid>();
+                        foreach (var c in dto.Clientes) { var old = c.Id; c.Id = Guid.NewGuid(); cliMap[old] = c.Id; }
+
+                        var seenCC = new HashSet<Guid>();
+                        var cleanCC = new List<CuentaCorriente>();
+                        foreach (var cc in dto.CuentasCorrientes) { 
+                            cc.Id = Guid.NewGuid(); 
+                            if (cliMap.TryGetValue(cc.ClienteId, out var nId)) cc.ClienteId = nId; 
+                            if (!seenCC.Contains(cc.ClienteId)) { seenCC.Add(cc.ClienteId); cleanCC.Add(cc); }
+                        }
+                        dto.CuentasCorrientes = cleanCC;
+
+                        var ventaMap = new Dictionary<Guid, Guid>();
+                        var seenVentas = new HashSet<int>();
+                        int maxVenta = dto.Ventas.Any() ? dto.Ventas.Max(x => x.NumeroVenta) : 0;
+                        foreach (var v in dto.Ventas) { 
+                            var old = v.Id; v.Id = Guid.NewGuid(); ventaMap[old] = v.Id; 
+                            if (v.ClienteId.HasValue && cliMap.TryGetValue(v.ClienteId.Value, out var nId)) v.ClienteId = nId; 
+                            
+                            if (seenVentas.Contains(v.NumeroVenta)) { v.NumeroVenta = ++maxVenta; }
+                            seenVentas.Add(v.NumeroVenta);
+                        }
+
+                        foreach (var vd in dto.VentaDetalles) { 
+                            vd.Id = Guid.NewGuid(); 
+                            if (ventaMap.TryGetValue(vd.VentaId, out var nVId)) vd.VentaId = nVId; 
+                            if (prodMap.TryGetValue(vd.ProductoId, out var nPId)) vd.ProductoId = nPId; 
+                        }
+
+                        var presMap = new Dictionary<Guid, Guid>();
+                        var seenPres = new HashSet<int>();
+                        int maxPres = dto.Presupuestos.Any() ? dto.Presupuestos.Max(x => x.NumeroPresupuesto) : 0;
+                        foreach (var p in dto.Presupuestos) { 
+                            var old = p.Id; p.Id = Guid.NewGuid(); presMap[old] = p.Id; 
+                            if (p.ClienteId.HasValue && cliMap.TryGetValue(p.ClienteId.Value, out var nId)) p.ClienteId = nId; 
+
+                            if (seenPres.Contains(p.NumeroPresupuesto)) { p.NumeroPresupuesto = ++maxPres; }
+                            seenPres.Add(p.NumeroPresupuesto);
+                        }
+
+                        foreach (var pd in dto.PresupuestoDetalles) { 
+                            pd.Id = Guid.NewGuid(); 
+                            if (presMap.TryGetValue(pd.PresupuestoId, out var nPrId)) pd.PresupuestoId = nPrId; 
+                            if (prodMap.TryGetValue(pd.ProductoId, out var nPId)) pd.ProductoId = nPId; 
+                        }
+
+                        foreach (var hp in dto.HistorialPrecios) { 
+                            hp.Id = Guid.NewGuid(); 
+                            if (prodMap.TryGetValue(hp.ProductoId, out var nPId)) hp.ProductoId = nPId; 
+                        }
+
+                        foreach (var m in dto.MovimientosFinancieros) { 
+                            m.Id = Guid.NewGuid(); 
+                            if (m.VentaId.HasValue && ventaMap.TryGetValue(m.VentaId.Value, out var nVId)) m.VentaId = nVId; 
+                        }
+
+                        foreach (var conf in dto.Configuraciones) { conf.Id = Guid.NewGuid(); }
+
+                        // 3. Insert new data with fresh IDs
+                        // EF Core will automatically re-assign TenantId in SaveChanges if we missed it, 
+                        // but it's already in the DTO objects anyway.
+                        
+                        if (dto.Configuraciones.Any()) await context.Configuraciones.AddRangeAsync(dto.Configuraciones);
+                        if (dto.Categorias.Any()) await context.Categorias.AddRangeAsync(dto.Categorias);
+                        if (dto.Productos.Any()) await context.Productos.AddRangeAsync(dto.Productos);
+                        if (dto.Clientes.Any()) await context.Clientes.AddRangeAsync(dto.Clientes);
+                        if (dto.CuentasCorrientes.Any()) await context.CuentasCorrientes.AddRangeAsync(dto.CuentasCorrientes);
+                        if (dto.MovimientosFinancieros.Any()) await context.MovimientosFinancieros.AddRangeAsync(dto.MovimientosFinancieros);
+                        if (dto.Ventas.Any()) await context.Ventas.AddRangeAsync(dto.Ventas);
+                        if (dto.VentaDetalles.Any()) await context.VentaDetalles.AddRangeAsync(dto.VentaDetalles);
+                        if (dto.Presupuestos.Any()) await context.Presupuestos.AddRangeAsync(dto.Presupuestos);
+                        if (dto.PresupuestoDetalles.Any()) await context.PresupuestoDetalles.AddRangeAsync(dto.PresupuestoDetalles);
+                        if (dto.HistorialPrecios.Any()) await context.HistorialPrecios.AddRangeAsync(dto.HistorialPrecios);
+
+                        // Disable automatic state tracking assignments that might interfere
+                        context.ChangeTracker.AutoDetectChangesEnabled = false;
+                        await context.SaveChangesAsync();
+                        context.ChangeTracker.AutoDetectChangesEnabled = true;
+
+                        await transaction.CommitAsync();
                     }
-                    catch (Exception ex)
+                    catch (Exception innerEx)
                     {
-                        lastError = ex.Message;
-                        break;
+                        await transaction.RollbackAsync();
+                        var realError = innerEx.InnerException != null ? innerEx.InnerException.Message : innerEx.Message;
+                        throw new Exception($"Error transaccional al restaurar la base de datos: {realError}");
                     }
-                }
+                });
 
-                // Limpiar temporal de caché
-                if (File.Exists(tempPath)) File.Delete(tempPath);
-
-                if (!success)
-                    return Result<string>.Fail($"No se pudo completar la restauración. El archivo sigue bloqueado. {lastError}");
-
-                return Result<string>.Ok($"Respaldo '{pickResult.FileName}' restaurado correctamente. La aplicación DEBE reiniciarse.");
+                return Result<string>.Ok($"Respaldo JSON '{pickResult.FileName}' restaurado correctamente. La nube de Supabase ha sido actualizada.");
             }
             catch (Exception ex)
             {
-                return Result<string>.Fail($"Error al restaurar: {ex.Message}");
+                return Result<string>.Fail($"Error al restaurar JSON: {ex.Message}");
             }
         }
 
-        private async Task<Result<string>> ValidateBackupFileAsync(string dbPath)
-        {
-            try
-            {
-                using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}");
-                await conn.OpenAsync();
-
-                var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='Configuraciones' LIMIT 1;";
-                var result = await cmd.ExecuteScalarAsync();
-                if (result == null || result == DBNull.Value)
-                    return Result<string>.Fail("El archivo seleccionado no parece ser un respaldo vÃ¡lido (falta la tabla Configuraciones).");
-
-                return Result<string>.Ok("Backup vÃ¡lido");
-            }
-            catch (Exception ex)
-            {
-                return Result<string>.Fail($"No se pudo validar el respaldo: {ex.Message}");
-            }
-            finally
-            {
-                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-            }
-        }
-    }
-
-    // Nuevas APIs de respaldo hÃ­brido (manual/automÃ¡tico)
-    public partial class BackupService
-    {
         public async Task<Result<string>> ExecuteBackupToFolderAsync(string targetFolder, bool isAutomatic)
         {
             try
             {
+                var tenantId = _tenantService.CurrentTenantId;
+                if (tenantId == Guid.Empty)
+                    return Result<string>.Fail("No hay un negocio (Tenant) activo.");
+
                 if (string.IsNullOrWhiteSpace(targetFolder) || !Directory.Exists(targetFolder))
-                    return Result<string>.Fail("La carpeta de destino no es vÃ¡lida.");
+                    return Result<string>.Fail("La carpeta de destino no es válida.");
 
-                if (!File.Exists(_dbPath))
-                    return Result<string>.Fail("No se encontrÃ³ el archivo de base de datos.");
+                var dto = await BuildExportDtoAsync(tenantId);
+                var json = JsonSerializer.Serialize(dto, JsonOptions);
 
-                // Limpieza agresiva para evitar locks en Windows
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-
-                var tempBackupPath = Path.Combine(FileSystem.CacheDirectory, $"Backup_Temp_{Guid.NewGuid()}.db");
-
-                try
-                {
-                    using (var sourceConnection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_dbPath}"))
-                    using (var destinationConnection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={tempBackupPath}"))
-                    {
-                        await sourceConnection.OpenAsync();
-                        await destinationConnection.OpenAsync();
-
-                        sourceConnection.BackupDatabase(destinationConnection);
-
-                        await destinationConnection.CloseAsync();
-                        await sourceConnection.CloseAsync();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    return Result<string>.Fail($"Error al generar backup: {ex.Message}");
-                }
-                finally
-                {
-                    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
-                }
-
-                var fileName = $"Backup_Stock_{DateTime.Now:yyyyMMdd_HHmm}.db";
+                var fileName = $"Backup_Stock_{DateTime.Now:yyyyMMdd_HHmm}.json";
                 var destinationPath = Path.Combine(targetFolder, fileName);
 
-                try
-                {
-                    Directory.CreateDirectory(targetFolder);
-                    File.Copy(tempBackupPath, destinationPath, overwrite: true);
-                }
-                finally
-                {
-                    if (File.Exists(tempBackupPath))
-                    {
-                        try { File.Delete(tempBackupPath); } catch { /* ignore */ }
-                    }
-                }
+                await File.WriteAllTextAsync(destinationPath, json);
 
-                // Actualizar preferencias
+                // Update preferences
                 Preferences.Set(TargetFolderKey, targetFolder);
                 Preferences.Set(LastRunUtcKey, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
 
-                // RetenciÃ³n: mantener Ãºltimos 15 backups
+                // Cleanup old backups
                 try
                 {
-                    var files = Directory.EnumerateFiles(targetFolder, "Backup_Stock_*.db")
+                    var files = Directory.EnumerateFiles(targetFolder, "Backup_Stock_*.json")
                         .Select(path => new FileInfo(path))
                         .OrderByDescending(f => f.CreationTimeUtc)
                         .ToList();
@@ -308,13 +328,10 @@ namespace Sistema_de_Stock.Services
                         }
                     }
                 }
-                catch
-                {
-                    // Ignorar errores de limpieza de retenciÃ³n para no fallar el backup principal
-                }
+                catch { /* Ignore cleanup errors */ }
 
-                var prefix = isAutomatic ? "automÃ¡tico" : "manual";
-                return Result<string>.Ok($"Backup {prefix} creado en {destinationPath}");
+                var prefix = isAutomatic ? "automático" : "manual";
+                return Result<string>.Ok($"Backup JSON {prefix} creado en {destinationPath}");
             }
             catch (Exception ex)
             {
@@ -326,58 +343,23 @@ namespace Sistema_de_Stock.Services
         {
             try
             {
+                var tenantId = _tenantService.CurrentTenantId;
+                if (tenantId == Guid.Empty)
+                    return Result<string>.Fail("No hay un negocio (Tenant) activo para respaldo.");
+
                 if (string.IsNullOrWhiteSpace(targetFolder) || !Directory.Exists(targetFolder))
                     return Result<string>.Fail("No hay carpeta configurada para el backup de cierre.");
 
-                if (!File.Exists(_dbPath))
-                    return Result<string>.Fail("No se encontrÃ³ el archivo de base de datos.");
+                var dto = await BuildExportDtoAsync(tenantId);
+                var json = JsonSerializer.Serialize(dto, JsonOptions);
 
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-
-                var tempBackupPath = Path.Combine(FileSystem.CacheDirectory, $"Backup_Cierre_{Guid.NewGuid()}.db");
-
-                try
-                {
-                    using (var sourceConnection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_dbPath}"))
-                    using (var destinationConnection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={tempBackupPath}"))
-                    {
-                        await sourceConnection.OpenAsync();
-                        await destinationConnection.OpenAsync();
-
-                        sourceConnection.BackupDatabase(destinationConnection);
-
-                        await destinationConnection.CloseAsync();
-                        await sourceConnection.CloseAsync();
-                    }
-                }
-                finally
-                {
-                    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
-                }
-
-                var destinationPath = Path.Combine(targetFolder, "Backup_Stock_UltimoCierre.db");
-
-                try
-                {
-                    Directory.CreateDirectory(targetFolder);
-                    File.Copy(tempBackupPath, destinationPath, overwrite: true);
-                }
-                finally
-                {
-                    if (File.Exists(tempBackupPath))
-                    {
-                        try { File.Delete(tempBackupPath); } catch { /* ignore */ }
-                    }
-                }
+                var destinationPath = Path.Combine(targetFolder, "Backup_Stock_UltimoCierre.json");
+                await File.WriteAllTextAsync(destinationPath, json);
 
                 Preferences.Set(TargetFolderKey, targetFolder);
                 Preferences.Set(LastCloseUtcKey, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
 
-                return Result<string>.Ok("Backup de cierre creado correctamente.");
+                return Result<string>.Ok("Backup JSON de cierre creado correctamente.");
             }
             catch (Exception ex)
             {
@@ -391,7 +373,7 @@ namespace Sistema_de_Stock.Services
             {
                 var folder = Preferences.Get(TargetFolderKey, string.Empty);
                 if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
-                    return Result<string>.Fail("No hay carpeta configurada para respaldos automÃ¡ticos.");
+                    return Result<string>.Fail("No hay carpeta configurada para respaldos automáticos.");
 
                 var lastRunString = Preferences.Get(LastRunUtcKey, string.Empty);
                 DateTime lastRunUtc = DateTime.MinValue;
@@ -401,17 +383,42 @@ namespace Sistema_de_Stock.Services
 
                 var elapsed = DateTime.UtcNow - lastRunUtc;
                 if (elapsed < TimeSpan.FromHours(24))
-                    return Result<string>.Ok("AÃºn no pasaron 24 horas desde el Ãºltimo respaldo automÃ¡tico.");
+                    return Result<string>.Ok("Aún no pasaron 24 horas desde el último respaldo automático.");
 
                 return await ExecuteBackupToFolderAsync(folder, isAutomatic: true);
             }
             catch (Exception ex)
             {
-                return Result<string>.Fail($"Error al verificar respaldo automÃ¡tico: {ex.Message}");
+                return Result<string>.Fail($"Error al verificar respaldo automático: {ex.Message}");
             }
         }
 
-        // Helpers para UI (opcionalmente pÃºblicos)
+        private async Task<BackupExportDto> BuildExportDtoAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<StockOnlineContext>();
+            
+            // AsNoTracking() is important for read-only queries to improve performance
+            // The QueryFilters in StockOnlineContext automatically filter by TenantId!
+            var dto = new BackupExportDto
+            {
+                TenantId = tenantId,
+                Configuraciones = await context.Configuraciones.AsNoTracking().ToListAsync(cancellationToken),
+                Categorias = await context.Categorias.AsNoTracking().ToListAsync(cancellationToken),
+                Productos = await context.Productos.AsNoTracking().ToListAsync(cancellationToken),
+                Clientes = await context.Clientes.AsNoTracking().ToListAsync(cancellationToken),
+                CuentasCorrientes = await context.CuentasCorrientes.AsNoTracking().ToListAsync(cancellationToken),
+                MovimientosFinancieros = await context.MovimientosFinancieros.AsNoTracking().ToListAsync(cancellationToken),
+                Ventas = await context.Ventas.AsNoTracking().ToListAsync(cancellationToken),
+                VentaDetalles = await context.VentaDetalles.AsNoTracking().ToListAsync(cancellationToken),
+                Presupuestos = await context.Presupuestos.AsNoTracking().ToListAsync(cancellationToken),
+                PresupuestoDetalles = await context.PresupuestoDetalles.AsNoTracking().ToListAsync(cancellationToken),
+                HistorialPrecios = await context.HistorialPrecios.AsNoTracking().ToListAsync(cancellationToken)
+            };
+
+            return dto;
+        }
+
         public string? GetConfiguredFolder() => Preferences.Get(TargetFolderKey, string.Empty);
 
         public DateTime? GetLastBackupUtc()
