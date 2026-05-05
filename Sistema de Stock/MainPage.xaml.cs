@@ -15,14 +15,15 @@ namespace Sistema_de_Stock
             InitializeComponent();
         }
 
-        private void OnBlazorWebViewInitializing(object sender, BlazorWebViewInitializingEventArgs e)
+        private void OnBlazorWebViewInitialized(object sender, BlazorWebViewInitializedEventArgs e)
         {
 #if ANDROID
             e.WebView.SetWebChromeClient(new PermissionWebChromeClient());
 #endif
 
 #if WINDOWS
-            e.UserDataFolder = Path.Combine(FileSystem.CacheDirectory, "WebView2");
+            // Removed e.UserDataFolder = Path.Combine(FileSystem.CacheDirectory, "WebView2");
+            // e.UserDataFolder is only on BlazorWebViewInitializingEventArgs
 #endif
         }
 
@@ -50,9 +51,12 @@ namespace Sistema_de_Stock
 #if ANDROID
     internal class PermissionWebChromeClient : WebChromeClient
     {
-        public override void OnPermissionRequest(PermissionRequest request)
+        public override void OnPermissionRequest(PermissionRequest? request)
         {
-            request.Grant(request.GetResources());
+            if (request != null)
+            {
+                request.Grant(request.GetResources());
+            }
         }
     }
 #endif

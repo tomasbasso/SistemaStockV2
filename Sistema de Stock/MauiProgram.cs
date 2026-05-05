@@ -13,6 +13,9 @@ namespace Sistema_de_Stock
     {
         public static MauiApp CreateMauiApp()
         {
+            // Habilita el soporte para DateTime locales en PostgreSQL (Npgsql)
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
@@ -24,14 +27,25 @@ namespace Sistema_de_Stock
 
             builder.Services.AddMauiBlazorWebView();
 
-            // ── Base de datos SQLite con EF Core ──────────────────────────
-            var dbPath = Path.Combine(FileSystem.AppDataDirectory, "stock.db");
-            builder.Services.AddDbContext<StockDbContext>(options =>
-                options.UseSqlite($"Data Source={dbPath}"),
+            // ── TenantService (singleton, mantiene la sesión activa) ────────
+            builder.Services.AddSingleton<TenantService>();
+            builder.Services.AddSingleton<ConnectivityService>();
+            builder.Services.AddSingleton<SupabaseAuthService>();
+
+            // ── StockOnlineContext (Npgsql → Supabase PostgreSQL) ─────────────
+            builder.Services.AddDbContext<StockOnlineContext>(options =>
+                options.UseNpgsql(SupabaseConfig.PoolerConnectionString),
+                ServiceLifetime.Transient);
+
+            // ── StockCacheContext (SQLite → cache offline local) ──────────────
+            var cacheDbPath = Path.Combine(FileSystem.AppDataDirectory, "stock_cache.db");
+            builder.Services.AddDbContext<StockCacheContext>(options =>
+                options.UseSqlite($"Data Source={cacheDbPath}"),
                 ServiceLifetime.Transient);
 
             // ── Servicios de la aplicación ────────────────────────────────
             builder.Services.AddTransient<Sistema_de_Stock.Services.DataService>();
+            builder.Services.AddTransient<Sistema_de_Stock.Services.CacheService>();
             builder.Services.AddSingleton<Sistema_de_Stock.Services.ReportService>();
             builder.Services.AddSingleton<Sistema_de_Stock.Services.NotificationService>();
             builder.Services.AddSingleton<Sistema_de_Stock.Services.PdfService>();
@@ -103,7 +117,31 @@ namespace Sistema_de_Stock
 #endif
             });
 
-            return builder.Build();
+            var app = builder.Build();
+
+#if DEBUG
+            // Asegurar que las DBs estén listas
+            using (var scope = app.Services.CreateScope())
+            {
+                try
+                {
+                    // La DB local caché siempre debe existir
+                    var cacheDb = scope.ServiceProvider.GetRequiredService<StockCacheContext>();
+                    cacheDb.Database.EnsureCreated();
+
+                    // La DB online (Supabase) ya ha sido inicializada manualmente.
+                    // Solo verificamos conexión o dejamos que EF Core maneje la creación perezosa.
+                    // var onlineDb = scope.ServiceProvider.GetRequiredService<StockOnlineContext>();
+                    // await onlineDb.Database.CanConnectAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error inicializando DB: {ex.Message}");
+                }
+            }
+#endif
+
+            return app;
         }
     }
 }

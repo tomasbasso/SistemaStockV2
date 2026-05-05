@@ -1,6 +1,48 @@
-<Router AppAssembly="@typeof(MauiProgram).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-</Router>
+@using Sistema_de_Stock.Services
+@using Sistema_de_Stock.Components.Pages
+@inject TenantService TenantService
+@inject ConnectivityService Connectivity
+
+@if (!_initialized)
+{
+    <!-- Splash mientras verifica sesión -->
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;
+                background:linear-gradient(135deg,#0f0c29,#302b63,#24243e)">
+        <div style="text-align:center;color:rgba(255,255,255,0.6)">
+            <div style="font-size:3rem;margin-bottom:1rem">📦</div>
+            <p>Iniciando...</p>
+        </div>
+    </div>
+}
+else if (!TenantService.IsAuthenticated)
+{
+    <Login OnLoginSuccess="HandleLoginSuccess" />
+}
+else
+{
+    <Router AppAssembly="@typeof(MauiProgram).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+    </Router>
+}
+
+@code {
+    private bool _initialized = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Intentar restaurar sesión guardada (permite arranque offline)
+        if (!TenantService.IsAuthenticated)
+        {
+            await TenantService.TryRestoreSessionAsync();
+        }
+        _initialized = true;
+    }
+
+    private void HandleLoginSuccess()
+    {
+        StateHasChanged();
+    }
+}

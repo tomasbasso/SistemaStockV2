@@ -108,7 +108,7 @@
                 </table>
             </div>
 
-            <AppPagination TotalItems="totalItems" PageSize="@pageSize" CurrentPage="currentPage" OnPageChanged="HandlePageChange" />
+            @* <AppPagination TotalItems="totalItems" PageSize="@pageSize" CurrentPage="currentPage" OnPageChanged="HandlePageChange" /> *@
         </div>
     }
 
@@ -155,7 +155,6 @@
     private int pageSize = 20;
 
     private string _searchQuery = "";
-    private System.Timers.Timer? searchTimer;
 
     private string searchQuery 
     {
@@ -246,7 +245,7 @@
             Notifications.Success("Movimiento registrado con éxito");
             await LoadData();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             Notifications.Error("Error al guardar el movimiento");
         }

@@ -13,8 +13,12 @@
     <Compile Include="..\Sistema de Stock\Models\AppModels.cs" />
     <Compile Include="..\Sistema de Stock\Models\Result.cs" />
     <Compile Include="..\Sistema de Stock\Data\StockDbContext.cs" />
+    <Compile Include="..\Sistema de Stock\Data\StockOnlineContext.cs" />
+    <Compile Include="..\Sistema de Stock\Data\StockCacheContext.cs" />
+    <Compile Include="..\Sistema de Stock\Data\IStockContext.cs" />
     <Compile Include="..\Sistema de Stock\Services\DataService.cs" />
     <Compile Include="..\Sistema de Stock\Services\PdfService.cs" />
+    <Compile Include="..\Sistema de Stock\Services\ConnectivityService.cs" />
   </ItemGroup>
 
   <ItemGroup>

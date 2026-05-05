@@ -352,7 +352,7 @@
         try { await searchInput.FocusAsync(); } catch { }
     }
 
-    private async Task HandleSearchKeydown(KeyboardEventArgs e)
+    private void HandleSearchKeydown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
