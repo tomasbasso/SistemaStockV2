@@ -1,0 +1,1085 @@
+@page "/productos"
+@using SistemaDeStockV3.Models
+@using SistemaDeStockV3.Services
+@using SistemaDeStockV3.Components.Shared
+@inject DataService Data
+@inject NotificationService Notifications
+
+<div class="max-w-7xl mx-auto pb-8">
+    
+    <!-- Header -->
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between mb-8 gap-4">
+        <div>
+            <h2 class="page-title mb-1">Inventario</h2>
+            <p class="page-subtitle">Gestión de Productos y Stock</p>
+        </div>
+        <div class="flex flex-wrap items-center justify-start lg:justify-end gap-3">
+            <button @onclick="OpenImportarExcel" class="bg-white/10 hover:bg-white/15 text-white font-medium py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2">
+                <i class="bi bi-file-earmark-excel-fill text-[var(--color-success)]"></i>
+                <span class="hidden md:inline">Importar Excel</span>
+            </button>
+            <button @onclick="OpenDeleteMultiple" class="bg-white/10 hover:bg-white/15 text-[var(--color-danger)] font-medium py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2">
+                <i class="bi bi-trash"></i>
+                <span class="hidden md:inline">Eliminar Varios</span>
+            </button>
+            <button @onclick="OpenAjustePrecios" class="bg-white/10 hover:bg-white/15 text-white font-medium py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2">
+                <i class="bi bi-percent"></i>
+                <span class="hidden md:inline">Ajustar Precios</span>
+            </button>
+            <button @onclick="OpenNew" class="bg-[var(--color-primary)] hover:brightness-110 text-white font-medium py-3 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 whitespace-nowrap">
+                <i class="bi bi-plus-lg"></i>
+                <span>Nuevo Producto</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters & Search -->
+    <div class="premium-card p-4 mb-6 flex items-center">
+        <div class="relative flex-1 max-w-md">
+            <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input @ref="searchInput" type="text" @bind="searchQuery" @bind:event="oninput" 
+                   @onkeydown="HandleSearchKeydown"
+                   placeholder="Escanear código o buscar..." 
+                   class="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--color-primary)] transition-all" />
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="premium-card p-6 min-h-[400px] flex items-center justify-center">
+            <i class="bi bi-arrow-repeat animate-spin text-4xl text-gray-500"></i>
+        </div>
+    }
+    else if (!PaginatedItems.Any() && string.IsNullOrWhiteSpace(searchQuery))
+    {
+        <div class="text-center py-20 bg-white/5 rounded-2xl border border-white/5 border-dashed">
+            <i class="bi bi-box-seam text-4xl text-gray-400 mb-4 block"></i>
+            <h3 class="text-lg font-medium text-white mb-2">Inventario Vacío</h3>
+            <p class="text-gray-400 mb-6">Agrega productos para comenzar a operar.</p>
+            <button @onclick="OpenNew" class="text-[var(--color-primary)] hover:text-white transition-colors">Crear Producto &rarr;</button>
+        </div>
+    }
+    else
+    {
+        <div class="premium-card">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead>
+                        <tr class="border-b border-white/10 bg-black/20 text-xs uppercase tracking-wider text-gray-400">
+                            <th class="px-6 py-4 font-medium">SKU</th>
+                            <th class="px-6 py-4 font-medium">Producto</th>
+                            <th class="px-6 py-4 font-medium">Categoría</th>
+                            <th class="px-6 py-4 font-medium">Ubicación</th>
+                            <th class="px-6 py-4 font-medium text-right">Precio</th>
+                            <th class="px-6 py-4 font-medium">Stock</th>
+                            <th class="px-6 py-4 font-medium text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        @foreach (var item in PaginatedItems)
+                        {
+                            <tr class="hover:bg-white/5 transition-colors group">
+                                <td class="px-6 py-4 text-sm font-bold text-white">@(string.IsNullOrEmpty(item.SKU) ? "-" : item.SKU)</td>
+                                <td class="px-6 py-4">
+                                    <div class="font-medium text-white">@item.Name</div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-300">@GetCategoryName(item.CategoryId)</td>
+                                <td class="px-6 py-4 text-sm text-gray-400">
+                                    @if (!string.IsNullOrWhiteSpace(item.Ubicacion))
+                                    {
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs">
+                                            <i class="bi bi-geo-alt-fill text-[var(--color-secondary)]"></i>
+                                            @item.Ubicacion
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-gray-600">—</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 text-sm text-right font-medium">@item.Price.ToString("C")</td>
+                                <td class="px-6 py-4">
+                                    @{
+                                        string badgeClass = item.Stock <= 0 ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)] border-[var(--color-danger)]/30" : 
+                                                          (item.Stock <= item.StockMinimo ? "bg-[var(--color-warning)]/20 text-[var(--color-warning)] border-[var(--color-warning)]/30" : 
+                                                          "bg-[var(--color-success)]/20 text-[var(--color-success)] border-[var(--color-success)]/30");
+                                    }
+                                    <div class="flex items-center gap-2">
+                                        <button @onclick="() => AjustarStockRapido(item, -1)" class="w-7 h-7 bg-white/10 hover:bg-white/20 rounded-md text-white font-bold flex items-center justify-center transition-colors">
+                                            <i class="bi bi-dash"></i>
+                                        </button>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border @badgeClass">
+                                            @item.Stock @item.UnidadMedida
+                                        </span>
+                                        <button @onclick="() => AjustarStockRapido(item, 1)" class="w-7 h-7 bg-white/10 hover:bg-white/20 rounded-md text-white font-bold flex items-center justify-center transition-colors">
+                                            <i class="bi bi-plus"></i>
+                                        </button>
+                                    </div>
+                                    @if(item.StockMinimo > 0)
+                                    {
+                                        <span class="text-[10px] text-gray-500 ml-2 block mt-1">Min: @item.StockMinimo</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button @onclick="() => OpenEdit(item)" class="w-8 h-8 rounded-md bg-white/5 text-gray-300 hover:text-white hover:bg-[var(--color-primary)] transition-colors flex items-center justify-center" title="Editar">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button @onclick="() => OpenDelete(item)" class="w-8 h-8 rounded-md bg-white/5 text-gray-300 hover:text-white hover:bg-[var(--color-danger)] transition-colors flex items-center justify-center" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        
+                        @if (!PaginatedItems.Any())
+                        {
+                            <tr>
+                        <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                                    No se encontraron resultados para "@searchQuery"
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            
+            <AppPagination TotalItems="totalItems" PageSize="@pageSize" CurrentPage="currentPage" OnPageChanged="HandlePageChange" />
+        </div>
+    }
+
+</div>
+
+<!-- Form Modal -->
+<AppModal IsOpen="isModalOpen" IsOpenChanged="(v) => isModalOpen = v" Title="@(isEditMode ? "Editar Producto" : "Nuevo Producto")">
+    <EditForm Model="editingItem" OnValidSubmit="Save">
+        <DataAnnotationsValidator />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Nombre *</label>
+                <InputText @bind-Value="editingItem.Name" autofocus class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
+                <ValidationMessage For="() => editingItem.Name" class="text-[var(--color-danger)] text-xs mt-1 block" />
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Código de Barras <span class="text-gray-500">(Opcional)</span></label>
+                <div class="relative">
+                    <i class="bi bi-upc-scan absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <InputText @bind-Value="editingItem.CodigoBarras" placeholder="Escanear o ingresar código" class="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
+                </div>
+                <ValidationMessage For="() => editingItem.CodigoBarras" class="text-[var(--color-danger)] text-xs mt-1 block" />
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">SKU (Opcional, se autogenera)</label>
+                <InputText @bind-Value="editingItem.SKU" @bind-Value:after="ClearSkuError" placeholder="Ej: mt150" class="@SkuInputClass" />
+                @if (!string.IsNullOrEmpty(skuErrorMsg))
+                {
+                    <span class="text-[var(--color-danger)] text-xs mt-1 flex items-center gap-1">
+                        <i class="bi bi-exclamation-circle-fill"></i> @skuErrorMsg
+                    </span>
+                }
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Categoría *</label>
+                <InputSelect @bind-Value="editingItem.CategoryId" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]">
+                    <option value="@Guid.Empty" class="bg-[#161b27] text-white">-- Seleccionar --</option>
+                    @foreach (var c in categorias)
+                    {
+                        <option value="@c.Id" class="bg-[#161b27] text-white">@c.Name</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="() => editingItem.CategoryId" class="text-[var(--color-danger)] text-xs mt-1 block" />
+            </div>
+
+           <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 bg-black/20 border border-white/5 rounded-xl p-4 mb-2">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Costo ($)</label>
+                    <InputNumber @bind-Value="editingItem.PrecioCosto" @bind-Value:after="CalcularDesdeCostoOMargen" step="0.01" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)]" />
+                    <ValidationMessage For="() => editingItem.PrecioCosto" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-[var(--color-secondary)] mb-1">Margen (%)</label>
+                    <InputNumber @bind-Value="editingItem.Margen" @bind-Value:after="CalcularDesdeCostoOMargen" step="0.1" class="w-full bg-black/40 border border-[var(--color-secondary)]/30 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-secondary)]" />
+                    <ValidationMessage For="() => editingItem.Margen" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-[var(--color-primary)] mb-1">Precio Venta ($)</label>
+                    <InputNumber @bind-Value="editingItem.Price" @bind-Value:after="CalcularDesdePrecioVenta" step="0.01" class="w-full bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/50 rounded-xl px-4 py-2 text-white font-bold focus:outline-none focus:border-[var(--color-primary)]" />
+                    <ValidationMessage For="() => editingItem.Price" class="text-[var(--color-danger)] text-xs mt-1 block" />
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Unidad de Medida *</label>
+                <InputText @bind-Value="editingItem.UnidadMedida" placeholder="Ej: u., Kg, Lts, mts" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
+                <ValidationMessage For="() => editingItem.UnidadMedida" class="text-[var(--color-danger)] text-xs mt-1 block" />
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Stock Actual</label>
+                <InputNumber @bind-Value="editingItem.Stock" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
+                <ValidationMessage For="() => editingItem.Stock" class="text-[var(--color-danger)] text-xs mt-1 block" />
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Stock Mínimo</label>
+                <InputNumber @bind-Value="editingItem.StockMinimo" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
+                <ValidationMessage For="() => editingItem.StockMinimo" class="text-[var(--color-danger)] text-xs mt-1 block" />
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Ubicación <span class="text-gray-500">(Opcional — Ej: Estantería 2, Depósito A)</span></label>
+                <div class="relative">
+                    <i class="bi bi-geo-alt absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <InputText @bind-Value="editingItem.Ubicacion" placeholder="Ej: Estantería 2, Pasillo 3, Depósito A" class="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
+                </div>
+                <ValidationMessage For="() => editingItem.Ubicacion" class="text-[var(--color-danger)] text-xs mt-1 block" />
+            </div>
+
+        </div>
+
+        <div class="mt-8 flex justify-end gap-3">
+            <button type="button" @onclick="() => isModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cancelar</button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-[var(--color-primary)] hover:brightness-110 text-white transition-all font-medium">Guardar</button>
+        </div>
+    </EditForm>
+</AppModal>
+
+<!-- Delete Modal -->
+<AppModal IsOpen="isDeleteModalOpen" IsOpenChanged="(v) => isDeleteModalOpen = v" Title="Corfirmar Eliminación">
+    <div class="py-4">
+        <p class="text-gray-300">¿Estás seguro de que deseas eliminar <strong>@deletingItem?.Name</strong>?</p>
+        <p class="text-sm text-[var(--color-danger)] mt-2"><i class="bi bi-exclamation-triangle-fill mr-1"></i> Esta acción no se puede deshacer.</p>
+    </div>
+    <div class="mt-6 flex justify-end gap-3">
+        <button @onclick="() => isDeleteModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cancelar</button>
+        <button @onclick="ConfirmDelete" class="px-5 py-2.5 rounded-xl bg-[var(--color-danger)] hover:brightness-110 text-white transition-all font-medium">Eliminar</button>
+    </div>
+</AppModal>
+
+<!-- Eliminar Múltiples Modal -->
+<AppModal IsOpen="isDeleteMultipleModalOpen" IsOpenChanged="(v) => { isDeleteMultipleModalOpen = v; }" Title="Eliminar Productos Múltiples">
+    <div class="space-y-4">
+
+        <!-- Filtro por categoría -->
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Filtrar por Categoría</label>
+            <select @onchange="OnDeleteMultipleCategoriaChange" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)]">
+                <option value="">— Todas las categorías —</option>
+                @foreach (var c in categorias)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </div>
+
+        <!-- Búsqueda por nombre -->
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Buscar Producto</label>
+            <div class="relative">
+                <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                <input type="text" @bind="deleteMultipleBusqueda" @bind:event="oninput"
+                       placeholder="Buscar por nombre o SKU..."
+                       class="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-9 py-2 text-white text-sm focus:outline-none focus:border-[var(--color-primary)] transition-all" />
+                @if (!string.IsNullOrEmpty(deleteMultipleBusqueda))
+                {
+                    <button type="button" @onclick="() => deleteMultipleBusqueda = string.Empty"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                        <i class="bi bi-x-circle-fill text-sm"></i>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Lista de productos seleccionables -->
+        <div>
+            <div class="flex items-center justify-between mb-2">
+                <label class="text-sm font-medium text-gray-300">Productos (@deleteMultipleProductosFiltrados.Count(p => deleteMultipleSeleccionados.Contains(p.Id)) seleccionados de @deleteMultipleProductosFiltrados.Count)</label>
+                <div class="flex gap-2 text-xs">
+                    <button type="button" @onclick="SeleccionarTodosDeleteMultiple" class="text-[var(--color-primary)] hover:underline">Seleccionar todos</button>
+                    <span class="text-gray-600">|</span>
+                    <button type="button" @onclick="() => deleteMultipleSeleccionados.Clear()" class="text-gray-400 hover:underline">Limpiar</button>
+                </div>
+            </div>
+            <div class="max-h-64 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                @foreach (var p in deleteMultipleProductosFiltrados)
+                {
+                    bool selected = deleteMultipleSeleccionados.Contains(p.Id);
+                    <div @onclick="() => ToggleDeleteMultipleProducto(p.Id)"
+                         class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all @(selected ? "bg-[var(--color-danger)]/15 border border-[var(--color-danger)]/30" : "bg-white/5 border border-transparent hover:bg-white/8")">
+                        <div class="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all @(selected ? "bg-[var(--color-danger)] border-[var(--color-danger)]" : "border-gray-500")">
+                            @if (selected) { <i class="bi bi-check text-white" style="font-size:10px"></i> }
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <span class="text-sm text-white truncate block">@p.Name</span>
+                            <span class="text-xs text-gray-500">@GetCategoryName(p.CategoryId)</span>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <span class="text-sm text-gray-400 font-medium">Stock: @p.Stock</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Resumen -->
+        @if (deleteMultipleSeleccionados.Count > 0)
+        {
+            <div class="bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-xl p-3">
+                <p class="text-sm text-[var(--color-danger)]"><i class="bi bi-exclamation-triangle-fill mr-1"></i> Se eliminarán <strong>@deleteMultipleSeleccionados.Count producto(s)</strong> de forma permanente.</p>
+            </div>
+        }
+    </div>
+
+    <div class="mt-6 flex justify-end gap-3">
+        <button type="button" @onclick="() => isDeleteMultipleModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cancelar</button>
+        <button type="button" @onclick="AplicarDeleteMultiple" disabled="@(deleteMultipleSeleccionados.Count == 0 || isApplyingDeleteMultiple)"
+                class="px-5 py-2.5 rounded-xl bg-[var(--color-danger)] hover:brightness-110 text-white transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+            @if (isApplyingDeleteMultiple) { <i class="bi bi-arrow-repeat animate-spin"></i> }
+            Eliminar Seleccionados
+        </button>
+    </div>
+</AppModal>
+
+<!-- Ajuste de Precios Modal -->
+<AppModal IsOpen="isAjusteModalOpen" IsOpenChanged="(v) => { isAjusteModalOpen = v; }" Title="Ajuste de Precios por Porcentaje">
+    <div class="space-y-4">
+
+        <!-- Filtro por categoría -->
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Filtrar por Categoría</label>
+            <select @onchange="OnAjusteCategoriaChange" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)]">
+                <option value="">— Todas las categorías —</option>
+                @foreach (var c in categorias)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </div>
+
+        <!-- Búsqueda por nombre -->
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Buscar Producto</label>
+            <div class="relative">
+                <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                <input type="text" @bind="ajusteBusqueda" @bind:event="oninput"
+                       placeholder="Buscar por nombre o SKU..."
+                       class="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-9 py-2 text-white text-sm focus:outline-none focus:border-[var(--color-primary)] transition-all" />
+                @if (!string.IsNullOrEmpty(ajusteBusqueda))
+                {
+                    <button type="button" @onclick="() => ajusteBusqueda = string.Empty"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
+                        <i class="bi bi-x-circle-fill text-sm"></i>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Porcentaje -->
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Porcentaje de Aumento (%)</label>
+            <div class="flex items-center gap-3">
+                <div class="flex gap-2">
+                    @foreach (var pct in new[] { 2m, 5m, 10m, 15m, 20m })
+                    {
+                        <button type="button" @onclick="() => ajustePorcentaje = pct"
+                                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all @(ajustePorcentaje == pct ? "bg-[var(--color-primary)] text-white" : "bg-white/5 text-gray-300 hover:bg-white/10")">
+                            @pct%
+                        </button>
+                    }
+                </div>
+                <div class="relative flex-1">
+                    <input type="number" step="0.1" min="-100" max="500" @bind="ajustePorcentaje"
+                           class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)]" placeholder="Personalizado" />
+                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de productos seleccionables -->
+        <div>
+            <div class="flex items-center justify-between mb-2">
+                <label class="text-sm font-medium text-gray-300">Productos (@ajusteProductosFiltrados.Count(p => ajusteSeleccionados.Contains(p.Id)) seleccionados de @ajusteProductosFiltrados.Count)</label>
+                <div class="flex gap-2 text-xs">
+                    <button type="button" @onclick="SeleccionarTodosAjuste" class="text-[var(--color-primary)] hover:underline">Seleccionar todos</button>
+                    <span class="text-gray-600">|</span>
+                    <button type="button" @onclick="() => ajusteSeleccionados.Clear()" class="text-gray-400 hover:underline">Limpiar</button>
+                </div>
+            </div>
+            <div class="max-h-64 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                @foreach (var p in ajusteProductosFiltrados)
+                {
+                    bool selected = ajusteSeleccionados.Contains(p.Id);
+                    <div @onclick="() => ToggleAjusteProducto(p.Id)"
+                         class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all @(selected ? "bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30" : "bg-white/5 border border-transparent hover:bg-white/8")">
+                        <div class="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all @(selected ? "bg-[var(--color-primary)] border-[var(--color-primary)]" : "border-gray-500")">
+                            @if (selected) { <i class="bi bi-check text-white" style="font-size:10px"></i> }
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <span class="text-sm text-white truncate block">@p.Name</span>
+                            <span class="text-xs text-gray-500">@GetCategoryName(p.CategoryId)</span>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <span class="text-sm text-[var(--color-secondary)] font-medium">@p.Price.ToString("C")</span>
+                            @if (selected && ajustePorcentaje != 0)
+                            {
+                                <span class="text-xs @(ajustePorcentaje > 0 ? "text-green-400" : "text-red-400") block">→ @(Math.Max(0, Math.Round(p.Price * (1 + ajustePorcentaje / 100), 2)).ToString("C"))</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Resumen -->
+        @if (ajusteSeleccionados.Count > 0 && ajustePorcentaje != 0)
+        {
+            <div class="bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 rounded-xl p-3">
+                <p class="text-sm text-white">Se @(ajustePorcentaje > 0 ? "aumentará" : "reducirá") el precio de <strong>@ajusteSeleccionados.Count producto(s)</strong> un <strong>@Math.Abs(ajustePorcentaje)%</strong>.</p>
+            </div>
+        }
+    </div>
+
+    <div class="mt-6 flex justify-end gap-3">
+        <button type="button" @onclick="() => isAjusteModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cancelar</button>
+        <button type="button" @onclick="AplicarAjustePrecios" disabled="@(ajusteSeleccionados.Count == 0 || ajustePorcentaje == 0 || isApplyingAjuste)"
+                class="px-5 py-2.5 rounded-xl bg-[var(--color-primary)] hover:brightness-110 text-white transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+            @if (isApplyingAjuste) { <i class="bi bi-arrow-repeat animate-spin"></i> }
+            Aplicar Aumento
+        </button>
+    </div>
+</AppModal>
+
+<!-- Modal Importar Excel -->
+<AppModal IsOpen="isImportModalOpen" IsOpenChanged="(v) => { isImportModalOpen = v; if (!v) ResetImport(); }" Title="Importar Productos desde Excel">
+    @if (importResult == null)
+    {
+        <div class="space-y-5">
+            <!-- Instrucciones -->
+            <div class="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-gray-300 space-y-1">
+                <p class="font-semibold text-white mb-2"><i class="bi bi-info-circle-fill text-[var(--color-primary)] mr-2"></i>Formato esperado del Excel</p>
+                <p>El archivo puede tener cabeceras o no. Las columnas deben estar en este orden:</p>
+                <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
+                    <div class="bg-[var(--color-primary)]/20 rounded-lg px-3 py-2 text-center">
+                        <p class="text-[var(--color-primary)] font-bold uppercase">Col A</p>
+                        <p class="text-white mt-1">SKU / Código</p>
+                        <p class="text-gray-500 mt-0.5">Opcional</p>
+                    </div>
+                    <div class="bg-[var(--color-primary)]/20 rounded-lg px-3 py-2 text-center">
+                        <p class="text-[var(--color-primary)] font-bold uppercase">Col B</p>
+                        <p class="text-white mt-1">Nombre del producto</p>
+                        <p class="text-gray-500 mt-0.5">Requerido</p>
+                    </div>
+                    <div class="bg-[var(--color-primary)]/20 rounded-lg px-3 py-2 text-center">
+                        <p class="text-[var(--color-primary)] font-bold uppercase">Col C</p>
+                        <p class="text-white mt-1">Precio</p>
+                        <p class="text-gray-500 mt-0.5">Requerido</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Si un SKU ya existe en el sistema, se actualizará el nombre y precio. Si no tiene SKU, se genera uno automático.</p>
+            </div>
+
+            <!-- Categoría por defecto -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1.5">Categoría para productos nuevos <span class="text-[var(--color-danger)]">*</span></label>
+                <select @bind="importCategoriaId" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]">
+                    <option value="">— Seleccionar categoría —</option>
+                    @foreach (var c in categorias)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Los productos importados quedarán en esta categoría. Podés cambiarla después.</p>
+            </div>
+
+            <!-- Selector de archivo -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1.5">Archivo Excel (.xlsx)</label>
+                <button @onclick="SeleccionarArchivoAsync"
+                        disabled="@isImporting"
+                        class="w-full border-2 border-dashed border-white/20 hover:border-[var(--color-primary)]/50 rounded-xl px-4 py-6 text-center transition-all group cursor-pointer @(importFileName != null ? "border-[var(--color-success)]/50 bg-[var(--color-success)]/5" : "")">
+                    @if (importFileName != null)
+                    {
+                        <i class="bi bi-file-earmark-excel-fill text-3xl text-[var(--color-success)] block mb-2"></i>
+                        <p class="text-white font-medium">@importFileName</p>
+                        <p class="text-xs text-gray-500 mt-1">Click para cambiar archivo</p>
+                    }
+                    else
+                    {
+                        <i class="bi bi-cloud-upload text-3xl text-gray-500 group-hover:text-[var(--color-primary)] block mb-2 transition-colors"></i>
+                        <p class="text-gray-400 group-hover:text-white transition-colors">Click para seleccionar archivo .xlsx</p>
+                    }
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+            <button @onclick="() => isImportModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cancelar</button>
+            <button @onclick="EjecutarImportAsync"
+                    disabled="@(importFileStream == null || string.IsNullOrEmpty(importCategoriaId) || isImporting)"
+                    class="px-5 py-2.5 rounded-xl bg-[var(--color-success)] hover:brightness-110 text-white transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                @if (isImporting)
+                {
+                    <i class="bi bi-arrow-repeat animate-spin"></i>
+                    <span>Importando...</span>
+                }
+                else
+                {
+                    <i class="bi bi-file-earmark-excel-fill"></i>
+                    <span>Importar</span>
+                }
+            </button>
+        </div>
+    }
+    else
+    {
+        <!-- Resultado -->
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-[var(--color-success)]/10 border border-[var(--color-success)]/20 rounded-xl p-4 text-center">
+                    <p class="text-3xl font-bold text-[var(--color-success)]">@importResult.Value.Importados</p>
+                    <p class="text-sm text-gray-400 mt-1">Productos nuevos</p>
+                </div>
+                <div class="bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 rounded-xl p-4 text-center">
+                    <p class="text-3xl font-bold text-[var(--color-primary)]">@importResult.Value.Actualizados</p>
+                    <p class="text-sm text-gray-400 mt-1">Actualizados (SKU existente)</p>
+                </div>
+            </div>
+
+            @if (importResult.Value.Errores.Any())
+            {
+                <div class="bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/20 rounded-xl p-4">
+                    <p class="text-sm font-semibold text-[var(--color-danger)] mb-2"><i class="bi bi-exclamation-triangle-fill mr-1"></i>@importResult.Value.Errores.Count fila(s) con error:</p>
+                    <div class="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+                        @foreach (var err in importResult.Value.Errores)
+                        {
+                            <p class="text-xs text-gray-400">• @err</p>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="mt-6 flex justify-end">
+            <button @onclick="() => { isImportModalOpen = false; ResetImport(); }" class="px-6 py-2.5 rounded-xl bg-[var(--color-primary)] hover:brightness-110 text-white transition-all font-medium">
+                Listo
+            </button>
+        </div>
+    }
+</AppModal>
+
+@code {
+    private List<Producto> PaginatedItems = new();
+    private List<Categoria> categorias = new();
+    private bool isLoading = true;
+    private int totalItems = 0;
+    private ElementReference searchInput;
+    
+    // Search & Pagination
+    private string _searchQuery = "";
+    private System.Timers.Timer? searchTimer;
+
+    private string searchQuery 
+    {
+        get => _searchQuery;
+        set 
+        {
+            if (_searchQuery != value)
+            {
+                _searchQuery = value;
+                if (searchTimer != null)
+                {
+                    searchTimer.Stop();
+                    searchTimer.Start();
+                }
+            }
+        }
+    }
+    
+    private int currentPage = 1;
+    private int pageSize = 20;
+
+    // Modals
+    private bool isModalOpen = false;
+    private bool isDeleteModalOpen = false;
+    private bool isEditMode = false;
+    private Producto editingItem = new();
+    private Producto? deletingItem;
+    private string skuErrorMsg = "";
+    private string SkuInputClass => string.IsNullOrEmpty(skuErrorMsg)
+        ? "w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
+        : "w-full bg-black/20 border border-[var(--color-danger)] rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-danger)] focus:ring-1 focus:ring-[var(--color-danger)]";
+
+    // Ajuste de Precios
+    private bool isAjusteModalOpen = false;
+    private bool isApplyingAjuste = false;
+    private decimal ajustePorcentaje = 10;
+    private Guid ajusteCategoriaFiltro = Guid.Empty;
+    private string ajusteBusqueda = "";
+    private HashSet<Guid> ajusteSeleccionados = new();
+    private List<Producto> todosLosProductos = new();
+    private List<Producto> ajusteProductosFiltrados => todosLosProductos
+        .Where(p => ajusteCategoriaFiltro == Guid.Empty || p.CategoryId == ajusteCategoriaFiltro)
+        .Where(p => string.IsNullOrWhiteSpace(ajusteBusqueda) ||
+                    p.Name.Contains(ajusteBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                    (p.SKU != null && p.SKU.Contains(ajusteBusqueda, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(p => GetCategoryName(p.CategoryId)).ThenBy(p => p.Name)
+        .ToList();
+
+    // Eliminar Múltiples
+    private bool isDeleteMultipleModalOpen = false;
+    private bool isApplyingDeleteMultiple = false;
+    private Guid deleteMultipleCategoriaFiltro = Guid.Empty;
+    private string deleteMultipleBusqueda = "";
+    private HashSet<Guid> deleteMultipleSeleccionados = new();
+    private List<Producto> deleteMultipleProductosFiltrados => todosLosProductos
+        .Where(p => deleteMultipleCategoriaFiltro == Guid.Empty || p.CategoryId == deleteMultipleCategoriaFiltro)
+        .Where(p => string.IsNullOrWhiteSpace(deleteMultipleBusqueda) ||
+                    p.Name.Contains(deleteMultipleBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                    (p.SKU != null && p.SKU.Contains(deleteMultipleBusqueda, StringComparison.OrdinalIgnoreCase)))
+        .OrderBy(p => GetCategoryName(p.CategoryId)).ThenBy(p => p.Name)
+        .ToList();
+
+    // Importar Excel
+    private bool isImportModalOpen = false;
+    private bool isImporting = false;
+    private string? importFileName = null;
+    private Stream? importFileStream = null;
+    private string importCategoriaId = "";
+    private (int Importados, int Actualizados, List<string> Errores)? importResult = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        searchTimer = new System.Timers.Timer(400);
+        searchTimer.Elapsed += SearchTimer_Elapsed;
+        searchTimer.AutoReset = false;
+
+        categorias = await Data.GetCategoriasAsync();
+        await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { await searchInput.FocusAsync(); } catch { }
+        }
+    }
+
+    private void SearchTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        currentPage = 1;
+        InvokeAsync(LoadData);
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        totalItems = await Data.GetTotalProductosAsync(searchQuery);
+        PaginatedItems = await Data.GetProductosPaginadosAsync(currentPage, pageSize, searchQuery);
+        
+        isLoading = false;
+        StateHasChanged();
+
+        // Re-enfocar después de cargar si no hay modal abierto
+        if (!isModalOpen && !isDeleteModalOpen)
+        {
+            await Task.Delay(50);
+            try { await searchInput.FocusAsync(); } catch { }
+        }
+    }
+
+    private async Task HandleSearchKeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery)) return;
+
+            // Intentar encontrar coincidencia exacta para abrir edición rápido
+            var exactMatch = (await Data.GetProductosAsync())
+                .FirstOrDefault(p => 
+                    (p.CodigoBarras != null && p.CodigoBarras.Equals(searchQuery, StringComparison.OrdinalIgnoreCase)) ||
+                    (p.SKU != null && p.SKU.Equals(searchQuery, StringComparison.OrdinalIgnoreCase)));
+
+            if (exactMatch != null)
+            {
+                searchQuery = "";
+                OpenEdit(exactMatch);
+            }
+        }
+    }
+
+    private string GetCategoryName(Guid id)
+    {
+        var cat = categorias.FirstOrDefault(c => c.Id == id);
+        return cat?.Name ?? "Sin Categoría";
+    }
+
+    private async Task HandlePageChange(int page)
+    {
+        currentPage = page;
+        await LoadData();
+    }
+
+    private bool IsValid(Producto p)
+    {
+        return !string.IsNullOrWhiteSpace(p.Name) && p.CategoryId != Guid.Empty && p.Price >= 0;
+    }
+
+    private void OpenNew()
+    {
+        editingItem = new Producto();
+        isEditMode = false;
+        isModalOpen = true;
+    }
+
+    private void OpenEdit(Producto item)
+    {
+        editingItem = new Producto 
+        { 
+            Id = item.Id, 
+            Name = item.Name, 
+            CodigoBarras = item.CodigoBarras,
+            SKU = item.SKU, 
+            CategoryId = item.CategoryId, 
+            Price = item.Price, 
+            PrecioCosto = item.PrecioCosto,
+            Margen = item.Margen, // <- AGREGA ESTA LÍNEA
+            Stock = item.Stock, 
+            StockMinimo = item.StockMinimo,
+            UnidadMedida = item.UnidadMedida,
+            Ubicacion = item.Ubicacion
+        };
+        isEditMode = true;
+        isModalOpen = true;
+    }
+    private void CalcularDesdeCostoOMargen()
+    {
+        if (editingItem.PrecioCosto >= 0 && editingItem.Margen >= 0)
+        {
+            editingItem.Price = editingItem.PrecioCosto * (1 + (editingItem.Margen / 100m));
+            editingItem.Price = Math.Round(editingItem.Price, 2);
+        }
+    }
+
+    private void CalcularDesdePrecioVenta()
+    {
+        if (editingItem.PrecioCosto > 0)
+        {
+            editingItem.Margen = ((editingItem.Price / editingItem.PrecioCosto) - 1) * 100m;
+            editingItem.Margen = Math.Round(editingItem.Margen, 2);
+        }
+        else if (editingItem.Price > 0)
+        {
+            editingItem.Margen = 100m;
+        }
+    }
+
+    private async Task Save()
+    {
+        // Auto-generar SKU si está vacío
+        if (string.IsNullOrWhiteSpace(editingItem.SKU) && !string.IsNullOrWhiteSpace(editingItem.Name))
+        {
+            editingItem.SKU = await GenerarSKUAutomaticoAsync(editingItem.Name);
+        }
+
+        // Validar unicidad de SKU
+        if (!string.IsNullOrWhiteSpace(editingItem.SKU))
+        {
+            bool existe = await Data.ExisteProductoPorSKUAsync(editingItem.SKU.Trim(), editingItem.Id);
+            if (existe)
+            {
+                skuErrorMsg = $"El SKU '{editingItem.SKU}' ya está en uso por otro producto.";
+                return;
+            }
+        }
+
+        try
+        {
+            await Data.SaveProductoAsync(editingItem);
+            var msg = isEditMode ? $"'{editingItem.Name}' actualizado." : $"'{editingItem.Name}' agregado al inventario.";
+            Notifications.Success(msg);
+            skuErrorMsg = "";
+            isModalOpen = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"Error al guardar producto: {ex.Message}");
+        }
+    }
+
+    private void ClearSkuError() => skuErrorMsg = "";
+
+    private async Task<string> GenerarSKUAutomaticoAsync(string nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre)) return $"P-{new Random().Next(1000, 9999)}";
+
+        var letters = new string(nombre.Where(char.IsLetter).ToArray()).ToLowerInvariant();
+        var numbers = new string(nombre.Where(char.IsDigit).ToArray());
+
+        string prefix = "";
+        if (letters.Length >= 2)
+        {
+            prefix += letters[0];
+            var consonantes = "bcdfghjklmnpqrstvwxyz"; // Buscamos una consonante para acompañar
+            var nextConsonant = letters.Substring(1).FirstOrDefault(c => consonantes.Contains(c));
+            if (nextConsonant != default(char))
+                prefix += nextConsonant;
+            else
+                prefix += letters[1];
+        }
+        else if (letters.Length == 1)
+        {
+            prefix = letters;
+        }
+        else
+        {
+            prefix = "prd";
+        }
+
+        if (string.IsNullOrEmpty(numbers))
+        {
+            numbers = new Random().Next(100, 999).ToString();
+        }
+
+        string baseSku = prefix + numbers;
+        string sku = baseSku;
+        int counter = 1;
+
+        while (await Data.ExisteProductoPorSKUAsync(sku, editingItem.Id))
+        {
+            sku = baseSku + "-" + counter;
+            counter++;
+        }
+
+        return sku;
+    }
+
+    private void OpenDelete(Producto item)
+    {
+        deletingItem = item;
+        isDeleteModalOpen = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (deletingItem != null)
+        {
+            try
+            {
+                await Data.DeleteProductoAsync(deletingItem.Id);
+                Notifications.Success($"'{deletingItem.Name}' eliminado del inventario.");
+                isDeleteModalOpen = false;
+                await LoadData();
+            }
+            catch (Exception ex)
+            {
+                Notifications.Error($"Error al eliminar: {ex.Message}");
+                isDeleteModalOpen = false;
+            }
+        }
+    }
+
+    private async Task OpenAjustePrecios()
+    {
+        todosLosProductos = await Data.GetProductosAsync();
+        ajusteSeleccionados.Clear();
+        ajusteCategoriaFiltro = Guid.Empty;
+        ajusteBusqueda = "";
+        ajustePorcentaje = 10;
+        isAjusteModalOpen = true;
+    }
+
+    private void OnAjusteCategoriaChange(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var id))
+            ajusteCategoriaFiltro = id;
+        else
+            ajusteCategoriaFiltro = Guid.Empty;
+        // Auto-select all products of that category
+        ajusteSeleccionados = ajusteProductosFiltrados.Select(p => p.Id).ToHashSet();
+    }
+
+    private void ToggleAjusteProducto(Guid id)
+    {
+        if (!ajusteSeleccionados.Remove(id))
+            ajusteSeleccionados.Add(id);
+    }
+
+    private void SeleccionarTodosAjuste()
+    {
+        ajusteSeleccionados = ajusteProductosFiltrados.Select(p => p.Id).ToHashSet();
+    }
+
+    private async Task AplicarAjustePrecios()
+    {
+        if (ajusteSeleccionados.Count == 0 || ajustePorcentaje == 0) return;
+        isApplyingAjuste = true;
+        try
+        {
+            await Data.AjustarPreciosPorcentajeAsync(ajusteSeleccionados.ToList(), ajustePorcentaje);
+            Notifications.Success($"Se actualizaron {ajusteSeleccionados.Count} producto(s) con un ajuste del {ajustePorcentaje}%.");
+            isAjusteModalOpen = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"Error al ajustar precios: {ex.Message}");
+        }
+        finally
+        {
+            isApplyingAjuste = false;
+        }
+    }
+
+    // ── Eliminar Múltiples ───────────────────────────────────────
+    private async Task OpenDeleteMultiple()
+    {
+        todosLosProductos = await Data.GetProductosAsync();
+        deleteMultipleSeleccionados.Clear();
+        deleteMultipleCategoriaFiltro = Guid.Empty;
+        deleteMultipleBusqueda = "";
+        isDeleteMultipleModalOpen = true;
+    }
+
+    private void OnDeleteMultipleCategoriaChange(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var id))
+            deleteMultipleCategoriaFiltro = id;
+        else
+            deleteMultipleCategoriaFiltro = Guid.Empty;
+        
+        deleteMultipleSeleccionados = deleteMultipleProductosFiltrados.Select(p => p.Id).ToHashSet();
+    }
+
+    private void ToggleDeleteMultipleProducto(Guid id)
+    {
+        if (!deleteMultipleSeleccionados.Remove(id))
+            deleteMultipleSeleccionados.Add(id);
+    }
+
+    private void SeleccionarTodosDeleteMultiple()
+    {
+        deleteMultipleSeleccionados = deleteMultipleProductosFiltrados.Select(p => p.Id).ToHashSet();
+    }
+
+    private async Task AplicarDeleteMultiple()
+    {
+        if (deleteMultipleSeleccionados.Count == 0) return;
+        isApplyingDeleteMultiple = true;
+        try
+        {
+            await Data.DeleteProductosAsync(deleteMultipleSeleccionados.ToList());
+            Notifications.Success($"Se eliminaron {deleteMultipleSeleccionados.Count} producto(s) correctamente.");
+            isDeleteMultipleModalOpen = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"Error al eliminar productos: {ex.Message}");
+        }
+        finally
+        {
+            isApplyingDeleteMultiple = false;
+        }
+    }
+
+    // ── Importar Excel ───────────────────────────────────────────
+    private void OpenImportarExcel()
+    {
+        ResetImport();
+        isImportModalOpen = true;
+    }
+
+    private void ResetImport()
+    {
+        importFileName = null;
+        importFileStream?.Dispose();
+        importFileStream = null;
+        importCategoriaId = "";
+        importResult = null;
+        isImporting = false;
+    }
+
+    private async Task SeleccionarArchivoAsync()
+    {
+        try
+        {
+            var fileType = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+            {
+                { DevicePlatform.WinUI, new[] { ".xlsx" } },
+                { DevicePlatform.Android, new[] { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream" } }
+            });
+
+            var result = await MainThread.InvokeOnMainThreadAsync(() =>
+                FilePicker.Default.PickAsync(new PickOptions
+                {
+                    PickerTitle = "Seleccioná el archivo Excel (.xlsx)",
+                    FileTypes = fileType
+                }));
+
+            if (result == null) return;
+
+            importFileName = result.FileName;
+            importFileStream?.Dispose();
+            // Leemos todo el contenido en memoria para evitar problemas con el stream del picker
+            var rawStream = await result.OpenReadAsync();
+            var ms = new MemoryStream();
+            await rawStream.CopyToAsync(ms);
+            ms.Position = 0;
+            importFileStream = ms;
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"Error al seleccionar archivo: {ex.Message}");
+        }
+    }
+
+    private async Task EjecutarImportAsync()
+    {
+        if (importFileStream == null || string.IsNullOrEmpty(importCategoriaId)) return;
+        isImporting = true;
+        try
+        {
+            importFileStream.Position = 0;
+            if (!Guid.TryParse(importCategoriaId, out var catId))
+            {
+                Notifications.Error("Categoría inválida.");
+                return;
+            }
+            var result = await Data.ImportarProductosDesdeExcelAsync(importFileStream, catId);
+            if (result.Success)
+            {
+                importResult = result.Data;
+                await LoadData();
+            }
+            else
+            {
+                Notifications.Error(result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"Error al importar: {ex.Message}");
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    private async Task AjustarStockRapido(Producto item, int cantidad)
+    {
+        await Data.CambiarStockAsync(item.Id, cantidad);
+        StateHasChanged();
+    }
+}

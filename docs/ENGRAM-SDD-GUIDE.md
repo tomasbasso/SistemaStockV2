@@ -1,6 +1,6 @@
 # Guía de Uso: Engram + Agent Teams Lite
 
-Sistema de Stock ahora tiene memoria persistente y desarrollo guiado por specs.
+SistemaDeStockV3 ahora tiene memoria persistente y desarrollo guiado por specs.
 
 ---
 
@@ -53,7 +53,7 @@ El agente guarda memorias automáticamente cuando:
     "where": "Services/DataService.cs:245",
     "learned": "Siempre usar Include() para navegación properties"
   },
-  "project": "Sistema de Stock",
+  "project": "SistemaDeStockV3",
   "scope": "project"
 }
 ```
@@ -231,7 +231,7 @@ engram tui
 
 # O desde OpenCode:
 mem_search("barcode")
-mem_context("Sistema de Stock")
+mem_context("SistemaDeStockV3")
 ```
 
 ---

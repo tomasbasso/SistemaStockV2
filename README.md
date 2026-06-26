@@ -1,4 +1,4 @@
-# Sistema de Stock
+# SistemaDeStockV3
 Sistema Híbrido multiplataforma desarrollado con .NET MAUI y Blazor, orientado a facilitar el control de inventario, finanzas, clientes y ventas offline o en red local.
 
 ## Características Principales

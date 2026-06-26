@@ -4,26 +4,26 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-**Sistema de Stock** is a hybrid offline inventory management system for small Argentine businesses. It is built with .NET 8 MAUI + Blazor Hybrid, targeting Windows and Android. The UI renders in a WebView using Razor/Blazor components styled with Tailwind CSS v4. Data is stored locally in a SQLite database via EF Core.
+**SistemaDeStockV3** is a hybrid offline inventory management system for small Argentine businesses. It is built with .NET 8 MAUI + Blazor Hybrid, targeting Windows and Android. The UI renders in a WebView using Razor/Blazor components styled with Tailwind CSS v4. Data is stored locally in a SQLite database via EF Core.
 
 ## Solution Structure
 
-- `Sistema de Stock/` — Main MAUI app project
-- `Sistema de Stock.Tests/` — xUnit test project (net8.0 only, no MAUI)
-- `Sistema de Stock.sln` — Solution file
+- `SistemaDeStockV3/` — Main MAUI app project
+- `SistemaDeStockV3.Tests/` — xUnit test project (net8.0 only, no MAUI)
+- `SistemaDeStockV3.sln` — Solution file
 
 ## Commands
 
 ### Build
 
 ```pwsh
-dotnet build "Sistema de Stock.sln"
+dotnet build "SistemaDeStockV3.sln"
 ```
 
 The build automatically runs Tailwind CSS compilation (`npm run build:css`) via an MSBuild `BeforeTargets="Build"` target. Node modules must be installed first (one-time):
 
 ```pwsh
-cd "Sistema de Stock"
+cd "SistemaDeStockV3"
 npm install
 ```
 
@@ -31,26 +31,26 @@ npm install
 
 ```pwsh
 # Windows
-dotnet build "Sistema de Stock/Sistema de Stock.csproj" -t:Run -f net8.0-windows10.0.19041.0
+dotnet build "SistemaDeStockV3/SistemaDeStockV3.csproj" -t:Run -f net8.0-windows10.0.19041.0
 
 # Android (requires connected device or emulator)
-dotnet build "Sistema de Stock/Sistema de Stock.csproj" -t:Run -f net8.0-android
+dotnet build "SistemaDeStockV3/SistemaDeStockV3.csproj" -t:Run -f net8.0-android
 ```
 
 ### Tests
 
 ```pwsh
 # Run all tests
-dotnet test "Sistema de Stock.Tests/Sistema de Stock.Tests.csproj"
+dotnet test "SistemaDeStockV3.Tests/SistemaDeStockV3.Tests.csproj"
 
 # Run a single test by name
-dotnet test "Sistema de Stock.Tests/Sistema de Stock.Tests.csproj" --filter "FullyQualifiedName~SaveProductoAsync_Crea_NuevoProducto"
+dotnet test "SistemaDeStockV3.Tests/SistemaDeStockV3.Tests.csproj" --filter "FullyQualifiedName~SaveProductoAsync_Crea_NuevoProducto"
 ```
 
 ### Tailwind CSS (manual, if needed outside build)
 
 ```pwsh
-cd "Sistema de Stock"
+cd "SistemaDeStockV3"
 npm run build:css
 ```
 

@@ -13,7 +13,7 @@
 ### Task 1: Service logic (BackupService)
 
 **Files:**
-- Modify: `Sistema de Stock/Services/BackupService.cs`
+- Modify: `SistemaDeStockV3/Services/BackupService.cs`
 
 **Step 1: Add preference keys and helpers**  
 Add constants for `Backup.TargetFolder` and `Backup.LastRunUtc`. Add parsers for stored DateTime (use UTC).
@@ -35,12 +35,12 @@ Add constants for `Backup.TargetFolder` and `Backup.LastRunUtc`. Add parsers for
 - Handle exceptions and bubbles as `Result<string>`.
 
 **Step 4: Quick build sanity**  
-Run: `dotnet build "Sistema de Stock.sln"` (expect success).
+Run: `dotnet build "SistemaDeStockV3.sln"` (expect success).
 
 ### Task 2: UI for configuration page
 
 **Files:**
-- Modify: `Sistema de Stock/Components/Pages/Configuracion.razor`
+- Modify: `SistemaDeStockV3/Components/Pages/Configuracion.razor`
 
 **Step 1: Inject `BackupService` only; keep existing config fields**  
 Remove old export/restore buttons; add backup section UI with:  
@@ -54,18 +54,18 @@ Remove old export/restore buttons; add backup section UI with:
 On init, load folder + last backup from `Preferences` and show.
 
 **Step 3: Build check**  
-Run: `dotnet build "Sistema de Stock.sln"` (expect success).
+Run: `dotnet build "SistemaDeStockV3.sln"` (expect success).
 
 ### Task 3: Auto-trigger on startup
 
 **Files:**
-- Modify: `Sistema de Stock/Components/Layout/MainLayout.razor`
+- Modify: `SistemaDeStockV3/Components/Layout/MainLayout.razor`
 
 **Step 1: Inject `BackupService`**  
 Fire-and-forget in `OnInitializedAsync`: `_ = Task.Run(() => Backup.CheckAndRunAutoBackupAsync());`.
 
 **Step 2: Build check**  
-Run: `dotnet build "Sistema de Stock.sln"` (expect success).
+Run: `dotnet build "SistemaDeStockV3.sln"` (expect success).
 
 ---
 

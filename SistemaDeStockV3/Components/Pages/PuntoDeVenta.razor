@@ -1,0 +1,590 @@
+@page "/pos"
+@page "/ventas"
+@using SistemaDeStockV3.Models
+@using SistemaDeStockV3.Services
+@using SistemaDeStockV3.Components.Shared
+@inject DataService Data
+@inject PdfService PdfSvc
+@inject NotificationService Notifications
+
+<div class="h-[calc(100vh-80px)] overflow-hidden flex flex-col md:flex-row gap-6">
+
+    <!-- Left Column: Products -->
+    <div class="flex-1 flex flex-col min-h-0 premium-card p-6">
+        <h2 class="text-xl font-semibold mb-4 text-white">Catálogo de Productos</h2>
+        
+        <!-- Search -->
+        <div class="relative mb-6">
+            <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input @ref="searchInput" type="text" @bind="searchQuery" @bind:event="oninput" 
+                   @onkeydown="HandleSearchKeydown"
+                   placeholder="Escanear código o buscar por nombre..." 
+                   class="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-[var(--color-primary)] transition-all" />
+        </div>
+
+        <!-- Products Grid -->
+        <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+            @if (isLoading)
+            {
+                <div class="flex items-center justify-center h-full">
+                    <i class="bi bi-arrow-repeat animate-spin text-4xl text-gray-500"></i>
+                </div>
+            }
+            else if (!FilteredProducts.Any())
+            {
+                <div class="text-center py-20 bg-white/5 rounded-2xl border border-white/5 border-dashed">
+                    <i class="bi bi-search text-4xl text-gray-400 mb-4 block"></i>
+                    <h3 class="text-lg font-medium text-white mb-2">No se encontraron productos</h3>
+                    <p class="text-gray-400">Prueba con otra búsqueda.</p>
+                </div>
+            }
+            else
+            {
+                <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    @foreach (var p in FilteredProducts)
+                    {
+                        bool isOutOfStock = p.Stock <= 0;
+                        <div @onclick="() => { if (!isOutOfStock) AddToCart(p); }" 
+                             class="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col justify-between transition-all @(isOutOfStock ? "opacity-50 cursor-not-allowed" : "hover:bg-white/5 hover:border-[var(--color-primary)]/50 cursor-pointer group")">
+                            
+                            <div>
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="text-xs font-mono text-gray-500 truncate max-w-[70%]">@p.SKU</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium @(isOutOfStock ? "bg-[var(--color-danger)]/20 text-[var(--color-danger)]" : "bg-[var(--color-success)]/20 text-[var(--color-success)]")">
+                                        @p.Stock u.
+                                    </span>
+                                </div>
+                                <h3 class="text-sm font-medium text-white line-clamp-2 mb-2 group-hover:text-[var(--color-primary)] transition-colors" title="@p.Name">@p.Name</h3>
+                            </div>
+                            
+                            <div class="mt-4 pt-4 border-t border-white/5 flex items-end justify-between">
+                                <span class="text-lg font-bold text-[var(--color-secondary)]">@p.Price.ToString("C")</span>
+                                @if(!isOutOfStock)
+                                {
+                                    <div class="w-8 h-8 rounded-full bg-[var(--color-primary)]/20 text-[var(--color-primary)] flex items-center justify-center group-hover:bg-[var(--color-primary)] group-hover:text-white transition-colors">
+                                        <i class="bi bi-cart-plus-fill"></i>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Right Column: Cart -->
+    <div class="w-full md:w-96 flex flex-col min-h-0 premium-card p-0 overflow-hidden bg-[#161b27]">
+        
+        <div class="p-6 border-b border-white/5 bg-black/10">
+            <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+                <i class="bi bi-cart3"></i> Venta Actual
+            </h2>
+        </div>
+
+        <!-- Cart Items -->
+        <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            @if (!cartItems.Any())
+            {
+                <div class="text-center py-12 text-gray-500 flex flex-col items-center">
+                    <i class="bi bi-cart-x text-5xl mb-4 opacity-50"></i>
+                    <p>Agrega productos para comenzar</p>
+                </div>
+            }
+            else
+            {
+                <div class="space-y-4">
+                    @foreach (var item in cartItems)
+                    {
+                        <div class="flex items-center justify-between border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                            <div class="flex-1 pr-4">
+                                <h4 class="text-sm font-medium text-white line-clamp-1" title="@item.Producto.Name">@item.Producto.Name</h4>
+                                <div class="text-xs text-gray-400 mt-1">@item.Producto.Price.ToString("C")</div>
+                            </div>
+                            
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center bg-black/30 rounded-lg p-1 border border-white/10">
+                                    <button @onclick="() => UpdateQuantity(item, -1)" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"><i class="bi bi-dash"></i></button>
+                                    <input type="number" min="1" max="@item.Producto.Stock"
+                                           value="@item.Quantity"
+                                           @onchange="(e) => SetQuantity(item, e.Value?.ToString())"
+                                           class="w-14 text-center text-sm font-medium text-white bg-transparent border-none outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                                    <button @onclick="() => UpdateQuantity(item, 1)" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"><i class="bi bi-plus"></i></button>
+                                </div>
+                                
+                                <button @onclick="() => RemoveFromCart(item)" class="w-8 h-8 flex items-center justify-center text-[var(--color-danger)]/70 hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 rounded-lg transition-colors">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Checkout Area -->
+        <div class="p-6 bg-black/20 border-t border-white/5">
+            <div class="space-y-3 mb-6">
+                <div class="flex justify-between text-gray-400 text-sm">
+                    <span>Subtotal</span>
+                    <span>@CartTotal.ToString("C")</span>
+                </div>
+                <div class="flex justify-between text-white font-bold text-xl border-t border-white/5 pt-3">
+                    <span>Total</span>
+                    <span class="text-[var(--color-secondary)]">@CartTotal.ToString("C")</span>
+                </div>
+            </div>
+
+            <button @onclick="OpenCheckout" disabled="@(!cartItems.Any())" class="w-full bg-[var(--color-primary)] hover:brightness-110 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-[var(--color-primary)]/20 disabled:opacity-50 disabled:cursor-not-allowed mb-3">
+                Cobrar @CartTotal.ToString("C")
+            </button>
+            <button @onclick="ClearCart" disabled="@(!cartItems.Any())" class="w-full bg-transparent hover:bg-white/5 text-gray-400 font-medium py-3 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                Cancelar Venta
+            </button>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Checkout Modal -->
+<AppModal IsOpen="isCheckoutModalOpen" IsOpenChanged="(v) => isCheckoutModalOpen = v" Title="Finalizar Venta">
+    <div class="space-y-6">
+        
+        <div class="bg-black/20 p-6 rounded-xl border border-white/5 text-center">
+            <p class="text-sm text-gray-400 uppercase tracking-widest mb-2">Total a cobrar</p>
+            @if (DiscountAmount > 0)
+            {
+                <p class="text-base line-through text-gray-600 mb-1">@CartTotal.ToString("C")</p>
+            }
+            <h2 class="text-4xl font-bold text-[var(--color-secondary)]">@FinalTotal.ToString("C")</h2>
+        </div>
+
+        <!-- Cliente Selection -->
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Cliente (Opcional)</label>
+            <select @bind="selectedClienteId" @bind:after="OnClienteChanged" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] transition-all">
+                <option value="@Guid.Empty" class="bg-[#161b27] text-white">Consumidor Final</option>
+                @foreach(var c in clientes)
+                {
+                    <option value="@c.Id" class="bg-[#161b27] text-white">@c.Name</option>
+                }
+            </select>
+        </div>
+
+        <!-- Forma de Pago -->
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Método de Pago</label>
+            <div class="grid grid-cols-2 gap-4">
+                <label class="cursor-pointer relative">
+                    <input type="radio" name="paymentMethod" checked="@(!isFiado)" @onchange="() => isFiado = false" class="peer sr-only" />
+                    <div class="rounded-xl border border-white/10 bg-black/20 p-4 hover:bg-white/5 peer-checked:border-[var(--color-primary)] peer-checked:bg-[var(--color-primary)]/10 transition-all text-center">
+                        <i class="bi bi-cash-coin text-2xl mb-2 block @(!isFiado ? "text-[var(--color-primary)]" : "text-gray-400")"></i>
+                        <span class="font-medium text-sm @(!isFiado ? "text-white" : "text-gray-400")">Contado</span>
+                    </div>
+                </label>
+                
+                <label class="cursor-pointer relative">
+                    <input type="radio" name="paymentMethod" checked="@isFiado" @onchange="() => isFiado = true" disabled="@(selectedClienteId == Guid.Empty)" class="peer sr-only disabled:opacity-50" />
+                    <div class="rounded-xl border border-white/10 bg-black/20 p-4 hover:bg-white/5 peer-checked:border-[var(--color-warning)] peer-checked:bg-[var(--color-warning)]/10 transition-all text-center @(selectedClienteId == Guid.Empty ? "opacity-50 cursor-not-allowed" : "")">
+                        <i class="bi bi-journal-text text-2xl mb-2 block @(isFiado ? "text-[var(--color-warning)]" : "text-gray-400")"></i>
+                        <span class="font-medium text-sm @(isFiado ? "text-white" : "text-gray-400")">Fiado (C/C)</span>
+                    </div>
+                </label>
+            </div>
+            @if(selectedClienteId == Guid.Empty && isFiado)
+            {
+                <p class="text-[10px] text-[var(--color-danger)] mt-2">Debe seleccionar un cliente para vender de Fiado.</p>
+            }
+        </div>
+
+        <!-- Descuento -->
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Descuento <span class="text-gray-500 font-normal">(opcional)</span></label>
+            <div class="flex gap-3 items-center">
+                <div class="flex rounded-xl overflow-hidden border border-white/10">
+                    <button type="button" @onclick="SetDiscountPercent" class="@DiscountBtnClassPercent">%</button>
+                    <button type="button" @onclick="SetDiscountFixed" class="@DiscountBtnClassFixed">$</button>
+                </div>
+                <input type="number" step="0.01" min="0" @bind="discountValue" @bind:event="oninput"
+                       class="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] transition-all"
+                       placeholder="@DiscountPlaceholder" />
+            </div>
+            @if (DiscountAmount > 0)
+            {
+                <p class="text-xs text-[var(--color-success)] mt-1.5">Descuento aplicado: -@DiscountAmount.ToString("C")</p>
+            }
+        </div>
+
+    </div>
+    
+    <div class="mt-8 flex justify-end gap-3">
+        <button @onclick="() => isCheckoutModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Volver</button>
+        <button @onclick="ConfirmSale" disabled="@isProcessingSale" class="px-6 py-2.5 rounded-xl bg-[var(--color-primary)] hover:brightness-110 text-white transition-all font-bold flex items-center gap-2">
+            @if(isProcessingSale)
+            {
+                <i class="bi bi-hourglass-split animate-spin"></i>
+                <span>Procesando...</span>
+            }
+            else
+            {
+                <i class="bi bi-check2-circle"></i>
+                <span>Confirmar Venta</span>
+            }
+        </button>
+    </div>
+</AppModal>
+
+<!-- Success Print Modal -->
+<AppModal IsOpen="isSuccessModalOpen" IsOpenChanged="(v) => isSuccessModalOpen = v" Title="Venta Exitosa">
+    <div class="py-12 text-center flex flex-col items-center">
+        <div class="w-20 h-20 rounded-full bg-[var(--color-success)]/20 text-[var(--color-success)] flex items-center justify-center text-4xl mb-6 shadow-[0_0_30px_rgba(var(--color-success),0.3)]">
+            <i class="bi bi-check-lg"></i>
+        </div>
+        <h3 class="text-2xl font-bold text-white mb-2">¡Venta Registrada!</h3>
+        <p class="text-gray-400">El stock ha sido actualizado correctamente.</p>
+        @if (lastNumeroVenta > 0)
+        {
+            <p class="text-gray-500 text-sm mt-1">Venta N° @lastNumeroVenta.ToString("D6")</p>
+        }
+    </div>
+    <div class="mt-8 flex flex-col gap-3 items-center">
+        <button @onclick="ImprimirRemitoAsync" disabled="@isPrintingRemito" class="px-8 py-3 rounded-xl bg-[var(--color-secondary)] hover:brightness-110 text-white transition-all font-medium w-full max-w-xs flex items-center justify-center gap-2">
+            @if (isPrintingRemito)
+            {
+                <i class="bi bi-arrow-repeat animate-spin"></i>
+                <span>Generando...</span>
+            }
+            else
+            {
+                <i class="bi bi-printer-fill"></i>
+                <span>Imprimir Remito PDF</span>
+            }
+        </button>
+        <button @onclick="() => isSuccessModalOpen = false" class="px-8 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-all font-medium w-full max-w-xs">
+            Nueva Venta
+        </button>
+    </div>
+</AppModal>
+
+@code {
+    [SupplyParameterFromQuery(Name = "scan")]
+    private string? ScanCode { get; set; }
+
+    private bool _scanProcessed = false;
+
+    private List<Producto> productos = new();
+    private List<Cliente> clientes = new();
+    private bool isLoading = true;
+    private ElementReference searchInput;
+
+    private string searchQuery = "";
+
+    private List<Producto> FilteredProducts => string.IsNullOrWhiteSpace(searchQuery) 
+        ? productos 
+        : productos.Where(x => 
+            x.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) || 
+            (x.SKU != null && x.SKU.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) ||
+            (x.CodigoBarras != null && x.CodigoBarras.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
+
+    // Cart System
+    private class CartItem
+    {
+        public Producto Producto { get; set; } = new();
+        public int Quantity { get; set; } = 1;
+        public decimal Total => Producto.Price * Quantity;
+    }
+    private List<CartItem> cartItems = new();
+    private decimal CartTotal => cartItems.Sum(x => x.Total);
+
+    // Checkout Modal
+    private bool isCheckoutModalOpen = false;
+    private bool isSuccessModalOpen = false;
+    private bool isProcessingSale = false;
+    private bool isPrintingRemito = false;
+    
+    private Guid selectedClienteId = Guid.Empty;
+    private bool isFiado = false;
+
+    // Descuento
+    private string discountType = "%";
+    private decimal discountValue = 0;
+    private decimal DiscountAmount => discountType == "%"
+        ? Math.Round(CartTotal * Math.Clamp(discountValue, 0, 100) / 100, 2)
+        : Math.Clamp(discountValue, 0, CartTotal);
+    private decimal FinalTotal => CartTotal - DiscountAmount;
+
+    private void SetDiscountPercent() => discountType = "%";
+    private void SetDiscountFixed() => discountType = "$";
+    private string DiscountBtnClassPercent => discountType == "%"
+        ? "px-4 py-2 text-sm font-medium transition-colors bg-[var(--color-primary)] text-white"
+        : "px-4 py-2 text-sm font-medium transition-colors bg-black/20 text-gray-400 hover:text-white";
+    private string DiscountBtnClassFixed => discountType == "$"
+        ? "px-4 py-2 text-sm font-medium transition-colors bg-[var(--color-primary)] text-white"
+        : "px-4 py-2 text-sm font-medium transition-colors bg-black/20 text-gray-400 hover:text-white";
+    private string DiscountPlaceholder => discountType == "%" ? "Ej: 10" : "Ej: 500";
+
+    // Datos de la última venta para el remito
+    private int lastNumeroVenta = 0;
+    private Venta? lastVenta;
+    private List<VentaDetalle> lastDetalles = new();
+    private List<CartItem> lastCartItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await searchInput.FocusAsync();
+            }
+            catch { }
+        }
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        productos = (await Data.GetProductosAsync()).OrderBy(x => x.Name).ToList();
+        clientes = (await Data.GetClientesAsync()).OrderBy(x => x.Name).ToList();
+        isLoading = false;
+
+        // Procesar código escaneado desde URL (?scan=...)
+        if (!string.IsNullOrEmpty(ScanCode) && !_scanProcessed)
+        {
+            _scanProcessed = true;
+            var decoded = Uri.UnescapeDataString(ScanCode);
+            var exactMatch = productos.FirstOrDefault(p =>
+                (p.CodigoBarras != null && p.CodigoBarras.Equals(decoded, StringComparison.OrdinalIgnoreCase)) ||
+                (p.SKU != null && p.SKU.Equals(decoded, StringComparison.OrdinalIgnoreCase)));
+
+            if (exactMatch != null)
+            {
+                if (exactMatch.Stock > 0)
+                {
+                    AddToCart(exactMatch);
+                    Notifications.Success($"Agregado desde scanner: {exactMatch.Name}");
+                }
+                else
+                {
+                    Notifications.Warning($"Sin stock: {exactMatch.Name}");
+                    searchQuery = decoded;
+                }
+            }
+            else
+            {
+                // Código no registrado — dejar en buscador para que el usuario lo vea
+                searchQuery = decoded;
+                Notifications.Warning($"Código '{decoded}' no encontrado en catálogo.");
+            }
+        }
+
+        // Enfocar buscador al cargar datos
+        await Task.Delay(100);
+        try { await searchInput.FocusAsync(); } catch { }
+    }
+
+    private void HandleSearchKeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery)) return;
+
+            // 1. Intentar coincidencia exacta (lo que suele mandar el escáner)
+            var exactMatch = productos.FirstOrDefault(p => 
+                (p.CodigoBarras != null && p.CodigoBarras.Equals(searchQuery, StringComparison.OrdinalIgnoreCase)) ||
+                (p.SKU != null && p.SKU.Equals(searchQuery, StringComparison.OrdinalIgnoreCase)));
+
+            if (exactMatch != null)
+            {
+                if (exactMatch.Stock > 0)
+                {
+                    AddToCart(exactMatch);
+                    Notifications.Success($"Agregado: {exactMatch.Name}");
+                    searchQuery = "";
+                }
+                else
+                {
+                    Notifications.Warning($"Sin stock: {exactMatch.Name}");
+                }
+            }
+            else
+            {
+                // 2. Si no hay exacta, pero la búsqueda filtrada tiene un solo resultado, agregarlo
+                var filtered = FilteredProducts;
+                if (filtered.Count == 1)
+                {
+                    var p = filtered[0];
+                    if (p.Stock > 0)
+                    {
+                        AddToCart(p);
+                        Notifications.Success($"Agregado: {p.Name}");
+                        searchQuery = "";
+                    }
+                }
+            }
+        }
+    }
+
+    private void AddToCart(Producto p)
+    {
+        var existing = cartItems.FirstOrDefault(x => x.Producto.Id == p.Id);
+        if (existing != null)
+        {
+            if (existing.Quantity < p.Stock)
+            {
+                existing.Quantity++;
+            }
+        }
+        else
+        {
+            if (p.Stock > 0)
+            {
+                cartItems.Add(new CartItem { Producto = p, Quantity = 1 });
+            }
+        }
+    }
+
+    private void UpdateQuantity(CartItem item, int change)
+    {
+        var newQ = item.Quantity + change;
+        if (newQ > 0 && newQ <= item.Producto.Stock)
+        {
+            item.Quantity = newQ;
+        }
+        else if (newQ <= 0)
+        {
+            RemoveFromCart(item);
+        }
+    }
+
+    private void SetQuantity(CartItem item, string? value)
+    {
+        if (int.TryParse(value, out int parsed) && parsed > 0)
+        {
+            item.Quantity = Math.Min(parsed, item.Producto.Stock);
+            if (parsed > item.Producto.Stock)
+                Notifications.Warning($"Solo hay {item.Producto.Stock} unidades en stock.");
+        }
+    }
+
+    private void RemoveFromCart(CartItem item)
+    {
+        cartItems.Remove(item);
+    }
+
+    private void ClearCart()
+    {
+        cartItems.Clear();
+    }
+
+    private void OnClienteChanged()
+    {
+        if (selectedClienteId == Guid.Empty)
+            isFiado = false;
+    }
+
+    private void OpenCheckout()
+    {
+        selectedClienteId = Guid.Empty;
+        isFiado = false;
+        discountValue = 0;
+        discountType = "%";
+        isCheckoutModalOpen = true;
+    }
+
+    private async Task ConfirmSale()
+    {
+        if (!cartItems.Any() || isProcessingSale) return;
+        
+        isProcessingSale = true;
+
+        try
+        {
+            var venta = new Venta
+            {
+                Total = FinalTotal,
+                ClienteId = selectedClienteId == Guid.Empty ? null : selectedClienteId,
+                IsFiado = isFiado && selectedClienteId != Guid.Empty
+            };
+
+            var detalles = cartItems.Select(c => new VentaDetalle
+            {
+                ProductoId = c.Producto.Id,
+                Quantity = c.Quantity,
+                UnitPrice = c.Producto.Price
+            }).ToList();
+
+            bool result = await Data.ProcesarVentaAsync(venta, detalles);
+            
+            if (result)
+            {
+                lastVenta = venta;
+                lastDetalles = detalles;
+                lastNumeroVenta = venta.NumeroVenta;
+                lastCartItems = new List<CartItem>(cartItems);
+                isCheckoutModalOpen = false;
+                ClearCart();
+                await LoadData(); // Refresh stock
+                isSuccessModalOpen = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            isCheckoutModalOpen = false;
+            Notifications.Error($"Error al procesar la venta: {ex.Message}");
+        }
+        finally
+        {
+            isProcessingSale = false;
+        }
+    }
+
+    private async Task ImprimirRemitoAsync()
+    {
+        if (lastVenta == null || !lastDetalles.Any()) return;
+        isPrintingRemito = true;
+        try
+        {
+            var config = await Data.GetConfiguracionAsync() ?? new ConfiguracionApp();
+            Cliente? cliente = null;
+            if (lastVenta.ClienteId.HasValue)
+                cliente = (await Data.GetClientesAsync()).FirstOrDefault(c => c.Id == lastVenta.ClienteId.Value);
+
+            var nombreProductos = lastCartItems.ToDictionary(x => x.Producto.Id, x => x.Producto.Name);
+
+            var remitoData = new RemitoVentaData
+            {
+                Venta = lastVenta,
+                Detalles = lastDetalles,
+                NombreProductos = nombreProductos,
+                Cliente = cliente,
+                Config = config
+            };
+
+            var pdfBytes = PdfSvc.GenerarRemitoVenta(remitoData);
+            using var stream = new MemoryStream(pdfBytes);
+            var fileName = $"Remito_{lastVenta.NumeroVenta:D6}_{lastVenta.Date:yyyyMMdd}.pdf";
+            var result = await MainThread.InvokeOnMainThreadAsync(async () =>
+                await CommunityToolkit.Maui.Storage.FileSaver.Default.SaveAsync(fileName, stream));
+            if (result.IsSuccessful)
+                Notifications.Success("Remito guardado correctamente.");
+            else
+                Notifications.Error("No se pudo guardar el remito.");
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"Error al generar remito: {ex.Message}");
+        }
+        finally
+        {
+            isPrintingRemito = false;
+        }
+    }
+}

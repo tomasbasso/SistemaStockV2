@@ -1,0 +1,125 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@using SistemaDeStockV3.Services
+@using SistemaDeStockV3.Components.Shared
+@inject DataService Data
+@inject BackupService Backup
+@inject IJSRuntime JSRuntime
+
+<div class="min-h-screen bg-[var(--color-bg)] text-[var(--color-ink)] flex select-none relative flex-col">
+
+<div class="min-h-screen bg-[var(--color-bg)] text-[var(--color-ink)] flex select-none relative">
+
+    <aside class="group w-[88px] hover:w-[286px] transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-50 bg-[var(--color-sidebar)] flex flex-col shadow-lg shadow-[rgba(37,99,235,0.20)] overflow-x-hidden">
+        <div class="px-[10px] group-hover:px-4 pt-5 pb-4 border-b border-white/15 overflow-hidden transition-all duration-300">
+            <div class="flex items-center gap-3 w-[56px] group-hover:w-[254px] transition-all duration-300 overflow-hidden">
+                <div class="w-10 h-10 shrink-0 rounded-xl bg-[rgba(255,255,255,0.10)] flex items-center justify-center overflow-hidden">
+                    <img src="logo.png" alt="BASSO TECH Logo" class="w-full h-full object-cover" />
+                </div>
+                <div class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 min-w-0">
+                    <p class="text-[10px] font-extrabold uppercase tracking-[0.24em] text-white/50 truncate">BASSO TECH</p>
+                    <p class="text-[0.95rem] font-bold text-white truncate">@(nombreNegocio ?? "Mi Negocio")</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto overflow-x-hidden pt-4 pb-3">
+            <NavMenu />
+        </div>
+
+        <div class="mx-4 mb-4 rounded-2xl border border-white/15 bg-[rgba(255,255,255,0.08)] px-[10px] group-hover:px-4 py-3 overflow-hidden transition-all duration-300 flex items-center gap-3 w-[56px] group-hover:w-[254px]">
+            <div class="w-9 h-9 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <i class="bi bi-person-badge text-white text-[1rem]"></i>
+            </div>
+            <div class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <p class="text-[0.9rem] font-bold text-white">Modo Local</p>
+                <p class="text-[10px] uppercase tracking-[0.24em] text-white/55">SQLite</p>
+            </div>
+        </div>
+
+    </aside>
+
+    <main class="flex-1 ml-[88px] flex flex-col min-h-screen transition-all duration-300">
+        <header class="sticky top-0 z-40 bg-[var(--color-surface)] border-b border-[var(--color-border)] px-8 py-4 flex items-center justify-between gap-6">
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-[0.26em] text-[var(--color-muted)]">Panel General</p>
+                <div class="flex items-center gap-3 mt-1">
+                    <h2 class="text-lg font-extrabold text-[var(--color-ink)]">Bienvenido</h2>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)]/10 px-3 py-1 text-xs font-bold text-[var(--color-primary)]">
+                        <span class="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]"></span>
+                        Comercio minorista
+                    </span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button @onclick="ToggleTheme" title="Cambiar Tema" class="h-10 w-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] hover:bg-[var(--color-primary)]/8 transition-colors flex items-center justify-center text-[var(--color-muted)] hover:text-[var(--color-primary)]">
+                    <i class="bi @(isDarkMode ? "bi-moon-stars-fill text-blue-500" : "bi-sun-fill text-amber-500")"></i>
+                </button>
+                <button class="h-10 w-10 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] hover:bg-[var(--color-primary)]/8 transition-colors flex items-center justify-center text-[var(--color-muted)] hover:text-[var(--color-primary)]">
+                    <i class="bi bi-bell"></i>
+                </button>
+            </div>
+        </header>
+
+        <article class="p-8 pt-6 flex-1 animate-fade-in">
+            @Body
+        </article>
+    </main>
+
+</div>
+</div>
+
+<ToastContainer />
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">✕</a>
+</div>
+
+<GlobalSearchModal @ref="searchModal" />
+
+@code {
+    private string? nombreNegocio = null;
+    private bool isDarkMode = false;
+    private GlobalSearchModal searchModal = default!;
+    private DotNetObjectReference<MainLayout>? objRef;
+
+    [JSInvokable]
+    public async Task OpenGlobalSearch()
+    {
+        if (searchModal != null)
+            await searchModal.Show();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        objRef = DotNetObjectReference.Create(this);
+        var config = await Data.GetConfiguracionAsync();
+        nombreNegocio = config?.NombreNegocio ?? "BASSO TECH";
+
+        // Mantiene el respaldo automatico sin bloquear la carga inicial.
+        _ = Task.Run(() => Backup.CheckAndRunAutoBackupAsync());
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("appUI.registerLayout", objRef);
+            isDarkMode = await JSRuntime.InvokeAsync<bool>("appUI.initTheme");
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        isDarkMode = !isDarkMode;
+        await JSRuntime.InvokeVoidAsync("appUI.toggleDarkMode", isDarkMode);
+    }
+
+    public void Dispose()
+    {
+        objRef?.Dispose();
+    }
+}
