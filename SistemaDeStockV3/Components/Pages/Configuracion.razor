@@ -61,7 +61,7 @@
                 </div>
 
                 <div class="flex justify-end pt-4 border-t border-white/5">
-                    <button type="submit" class="bg-[var(--color-primary)] hover:brightness-110 text-white font-medium py-3 px-6 rounded-xl transition-all shadow-lg flex items-center gap-2" disabled="@isSaving">
+                    <button type="submit" class="btn btn-primary btn-lg flex items-center gap-2" disabled="@isSaving">
                         @if(isSaving)
                         {
                             <i class="bi bi-hourglass-split animate-spin"></i>
@@ -100,7 +100,7 @@
                     <label class="block text-sm font-medium text-gray-300 mb-2">Carpeta de respaldo</label>
                     <div class="flex flex-col md:flex-row gap-3">
                         <input type="text" class="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm" value="@selectedFolderDisplay" readonly />
-                        <button type="button" class="bg-white/10 hover:bg-white/20 border border-white/10 text-white font-medium px-4 py-3 rounded-xl transition-all flex items-center gap-2" @onclick="SeleccionarCarpeta">
+                        <button type="button" class="btn btn-secondary flex items-center gap-2" @onclick="SeleccionarCarpeta">
                             <i class="bi bi-folder2-open"></i>
                             <span>Seleccionar Carpeta</span>
                         </button>
@@ -118,7 +118,7 @@
                 </div>
 
                 <div class="flex flex-col sm:flex-row gap-3">
-                    <button type="button" class="flex-1 bg-[var(--color-primary)] hover:brightness-110 text-white font-medium py-3 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" @onclick="RespaldarAhora" disabled="@(!canBackup || isBackingUp || isRestoring)">
+                    <button type="button" class="btn btn-primary flex-1 flex items-center justify-center gap-2" @onclick="RespaldarAhora" disabled="@(!canBackup || isBackingUp || isRestoring)">
                         @if (isBackingUp)
                         {
                             <i class="bi bi-arrow-repeat animate-spin"></i>
@@ -130,7 +130,7 @@
                             <span>Respaldar ahora</span>
                         }
                     </button>
-                    <button type="button" class="flex-1 bg-[var(--color-warning)]/80 hover:brightness-110 text-white font-medium py-3 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" @onclick="RestaurarBackup" disabled="@isRestoring">
+                    <button type="button" class="btn btn-secondary flex-1 flex items-center justify-center gap-2 !text-[var(--color-warning)] !border-[var(--color-warning)]/30" @onclick="RestaurarBackup" disabled="@isRestoring">
                         @if (isRestoring)
                         {
                             <i class="bi bi-arrow-repeat animate-spin"></i>

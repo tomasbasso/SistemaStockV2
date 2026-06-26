@@ -12,7 +12,7 @@
             <h2 class="page-title mb-1">Clientes</h2>
             <p class="page-subtitle">Gestión de Clientes y Cuenta Corriente</p>
         </div>
-        <button @onclick="OpenNew" class="bg-[var(--color-primary)] hover:brightness-110 text-white font-medium py-3 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2">
+        <button @onclick="OpenNew" class="btn btn-primary btn-lg flex items-center gap-2">
             <i class="bi bi-person-plus-fill"></i>
             <span>Nuevo Cliente</span>
         </button>
@@ -183,8 +183,8 @@
 </div>
         </div>
         <div class="mt-8 flex justify-end gap-3">
-            <button type="button" @onclick="() => isModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cancelar</button>
-            <button type="submit" class="px-5 py-2.5 rounded-xl bg-[var(--color-primary)] hover:brightness-110 text-white transition-all font-medium">Guardar</button>
+            <button type="button" @onclick="() => isModalOpen = false" class="btn btn-ghost">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
     </EditForm>
 </AppModal>
@@ -200,8 +200,8 @@
         <p class="text-xs text-gray-500 mt-2 text-center">Esto generará un Ingreso Financiero y reducirá el balance de la Cuenta Corriente.</p>
     </div>
     <div class="mt-6 flex justify-end gap-3">
-        <button @onclick="() => isSettleModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cancelar</button>
-        <button @onclick="ConfirmPayment" disabled="@(paymentAmount <= 0 || paymentAmount > (settleCc?.Balance ?? 0) || isPayingFiado)" class="px-5 py-2.5 rounded-xl bg-[var(--color-success)] hover:brightness-110 text-white transition-all font-medium disabled:opacity-50">Registrar Pago</button>
+        <button @onclick="() => isSettleModalOpen = false" class="btn btn-ghost">Cancelar</button>
+        <button @onclick="ConfirmPayment" disabled="@(paymentAmount <= 0 || paymentAmount > (settleCc?.Balance ?? 0) || isPayingFiado)" class="btn btn-primary">Registrar Pago</button>
     </div>
 </AppModal>
 
@@ -216,8 +216,8 @@
         <p class="text-xs text-gray-500 mt-2">Esta acción no se puede deshacer. Se eliminará también su cuenta corriente.</p>
     </div>
     <div class="mt-6 flex justify-end gap-3">
-        <button @onclick="() => isConfirmDeleteOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Cancelar</button>
-        <button @onclick="DeleteConfirmed" class="px-5 py-2.5 rounded-xl bg-[var(--color-danger)] hover:brightness-110 text-white transition-all font-medium flex items-center gap-2">
+        <button @onclick="() => isConfirmDeleteOpen = false" class="btn btn-ghost">Cancelar</button>
+        <button @onclick="DeleteConfirmed" class="btn btn-danger flex items-center gap-2">
             <i class="bi bi-trash"></i> Eliminar
         </button>
     </div>

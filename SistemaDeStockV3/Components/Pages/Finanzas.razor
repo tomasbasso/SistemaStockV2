@@ -15,11 +15,11 @@
             <p class="page-subtitle">Historial de Ingresos y Egresos</p>
         </div>
         <div class="flex gap-3">
-             <button @onclick="() => OpenNew(TipoMovimiento.Egreso)" class="bg-white/5 border border-white/10 hover:bg-white/10 text-[var(--color-danger)] font-medium py-2.5 px-5 rounded-xl transition-all flex items-center gap-2">
+            <button @onclick="() => OpenNew(TipoMovimiento.Egreso)" class="btn btn-secondary !text-[var(--color-danger)]">
                 <i class="bi bi-arrow-down-right-circle"></i>
                 <span>Nuevo Egreso</span>
             </button>
-            <button @onclick="() => OpenNew(TipoMovimiento.Ingreso)" class="bg-[var(--color-success)] hover:brightness-110 text-white font-medium py-2.5 px-5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2">
+            <button @onclick="() => OpenNew(TipoMovimiento.Ingreso)" class="btn btn-success">
                 <i class="bi bi-arrow-up-right-circle"></i>
                 <span>Nuevo Ingreso</span>
             </button>

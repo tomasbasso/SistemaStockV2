@@ -24,13 +24,13 @@
 
     @* Acciones Rápidas *@
     <div class="flex flex-wrap items-center gap-3 animate-fade-in -mt-3">
-        <button @onclick='() => Nav.NavigateTo("/ventas")' class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-semibold hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--color-primary)]/25 transition-all">
+        <button @onclick='() => Nav.NavigateTo("/ventas")' class="btn btn-primary">
             <i class="bi bi-plus-circle text-base"></i> Nueva Venta
         </button>
-        <button @onclick='() => Nav.NavigateTo("/productos")' class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-sm font-semibold hover:-translate-y-0.5 hover:border-[var(--color-primary)]/30 hover:shadow-md transition-all">
+        <button @onclick='() => Nav.NavigateTo("/productos")' class="btn btn-secondary">
             <i class="bi bi-box-seam text-[var(--color-primary)] text-base"></i> Nuevo Producto
         </button>
-        <button @onclick='() => Nav.NavigateTo("/finanzas")' class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)] text-sm font-semibold hover:-translate-y-0.5 hover:border-[var(--color-warning)]/30 hover:shadow-md transition-all">
+        <button @onclick='() => Nav.NavigateTo("/finanzas")' class="btn btn-secondary">
             <i class="bi bi-cash-stack text-[var(--color-warning)] text-base"></i> Registrar Gasto
         </button>
     </div>

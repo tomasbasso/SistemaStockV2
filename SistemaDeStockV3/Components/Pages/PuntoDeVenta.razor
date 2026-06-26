@@ -219,8 +219,8 @@
     </div>
     
     <div class="mt-8 flex justify-end gap-3">
-        <button @onclick="() => isCheckoutModalOpen = false" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors font-medium">Volver</button>
-        <button @onclick="ConfirmSale" disabled="@isProcessingSale" class="px-6 py-2.5 rounded-xl bg-[var(--color-primary)] hover:brightness-110 text-white transition-all font-bold flex items-center gap-2">
+        <button @onclick="() => isCheckoutModalOpen = false" class="btn btn-ghost">Volver</button>
+        <button @onclick="ConfirmSale" disabled="@isProcessingSale" class="btn btn-primary flex items-center gap-2">
             @if(isProcessingSale)
             {
                 <i class="bi bi-hourglass-split animate-spin"></i>
@@ -261,7 +261,7 @@
                 <span>Imprimir Remito PDF</span>
             }
         </button>
-        <button @onclick="() => isSuccessModalOpen = false" class="px-8 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-all font-medium w-full max-w-xs">
+        <button @onclick="() => isSuccessModalOpen = false" class="btn btn-ghost w-full max-w-xs">
             Nueva Venta
         </button>
     </div>

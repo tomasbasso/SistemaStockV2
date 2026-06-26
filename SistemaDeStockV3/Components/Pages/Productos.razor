@@ -14,19 +14,19 @@
             <p class="page-subtitle">Gestión de Productos y Stock</p>
         </div>
         <div class="flex flex-wrap items-center justify-start lg:justify-end gap-3">
-            <button @onclick="OpenImportarExcel" class="bg-white/10 hover:bg-white/15 text-white font-medium py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2">
+            <button @onclick="OpenImportarExcel" class="btn btn-secondary">
                 <i class="bi bi-file-earmark-excel-fill text-[var(--color-success)]"></i>
                 <span class="hidden md:inline">Importar Excel</span>
             </button>
-            <button @onclick="OpenDeleteMultiple" class="bg-white/10 hover:bg-white/15 text-[var(--color-danger)] font-medium py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2">
+            <button @onclick="OpenDeleteMultiple" class="btn btn-secondary !text-[var(--color-danger)]">
                 <i class="bi bi-trash"></i>
                 <span class="hidden md:inline">Eliminar Varios</span>
             </button>
-            <button @onclick="OpenAjustePrecios" class="bg-white/10 hover:bg-white/15 text-white font-medium py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2">
+            <button @onclick="OpenAjustePrecios" class="btn btn-secondary">
                 <i class="bi bi-percent"></i>
                 <span class="hidden md:inline">Ajustar Precios</span>
             </button>
-            <button @onclick="OpenNew" class="bg-[var(--color-primary)] hover:brightness-110 text-white font-medium py-3 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 whitespace-nowrap">
+            <button @onclick="OpenNew" class="btn btn-primary btn-lg">
                 <i class="bi bi-plus-lg"></i>
                 <span>Nuevo Producto</span>
             </button>
