@@ -5,6 +5,7 @@
 @inject DataService Data
 @inject BackupService Backup
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
 
 <div class="min-h-screen bg-[var(--color-bg)] text-[var(--color-ink)] flex select-none relative flex-col">
 
@@ -27,13 +28,16 @@
             <NavMenu />
         </div>
 
-        <div class="mx-4 mb-4 rounded-2xl border border-white/15 bg-[rgba(255,255,255,0.08)] px-[10px] group-hover:px-4 py-3 overflow-hidden transition-all duration-300 flex items-center gap-3 w-[56px] group-hover:w-[254px]">
-            <div class="w-9 h-9 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
-                <i class="bi bi-person-badge text-white text-[1rem]"></i>
+        <div class="mx-[10px] group-hover:mx-4 mb-4 px-[10px] group-hover:px-3 py-2.5 flex items-center gap-3 overflow-hidden transition-all duration-300 w-[56px] group-hover:w-[254px]" title="Modo Local — SQLite">
+            <div class="relative shrink-0">
+                <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                    <i class="bi bi-database-fill text-white/60 text-[0.85rem]"></i>
+                </div>
+                <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[var(--color-success)] ring-2 ring-[var(--color-sidebar)]"></span>
             </div>
             <div class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <p class="text-[0.9rem] font-bold text-white">Modo Local</p>
-                <p class="text-[10px] uppercase tracking-[0.24em] text-white/55">SQLite</p>
+                <p class="text-[0.8rem] font-semibold text-white/70">Modo Local</p>
+                <p class="text-[9px] uppercase tracking-[0.22em] text-white/40">SQLite</p>
             </div>
         </div>
 
@@ -41,10 +45,13 @@
 
     <main class="flex-1 ml-[88px] flex flex-col min-h-screen transition-all duration-300">
         <header class="sticky top-0 z-40 bg-[var(--color-surface)] border-b border-[var(--color-border)] px-8 py-4 flex items-center justify-between gap-6">
+            @{
+                var (pageSection, pageTitle) = GetPageInfo();
+            }
             <div>
-                <p class="text-[11px] font-bold uppercase tracking-[0.26em] text-[var(--color-muted)]">Panel General</p>
+                <p class="text-[11px] font-bold uppercase tracking-[0.26em] text-[var(--color-muted)]">@pageSection</p>
                 <div class="flex items-center gap-3 mt-1">
-                    <h2 class="text-lg font-extrabold text-[var(--color-ink)]">Bienvenido</h2>
+                    <h2 class="text-lg font-extrabold text-[var(--color-ink)]">@pageTitle</h2>
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary)]/10 px-3 py-1 text-xs font-bold text-[var(--color-primary)]">
                         <span class="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]"></span>
                         Comercio minorista
@@ -92,8 +99,29 @@
             await searchModal.Show();
     }
 
+    private (string section, string title) GetPageInfo()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].ToLowerInvariant().TrimStart('/');
+        return path switch
+        {
+            "" => ("Panel General", "Dashboard"),
+            "productos" => ("Catálogo", "Productos"),
+            "categorias" => ("Catálogo", "Categorías"),
+            "variacion-precios" => ("Inventario", "Variación de Precios"),
+            "ventas" or "pos" => ("Operaciones", "Ventas"),
+            "presupuestos" => ("Operaciones", "Presupuestos"),
+            "finanzas" => ("Operaciones", "Finanzas"),
+            "clientes" => ("Personas", "Clientes"),
+            "reportes" => ("Informes", "Reportes"),
+            "configuracion" => ("Sistema", "Configuración"),
+            "scanner" => ("Sistema", "Scanner"),
+            _ => ("Panel General", "Dashboard")
+        };
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        Nav.LocationChanged += OnLocationChanged;
         objRef = DotNetObjectReference.Create(this);
         var config = await Data.GetConfiguracionAsync();
         nombreNegocio = config?.NombreNegocio ?? "BASSO TECH";
@@ -118,8 +146,12 @@
         await JSRuntime.InvokeVoidAsync("appUI.toggleDarkMode", isDarkMode);
     }
 
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+        => InvokeAsync(StateHasChanged);
+
     public void Dispose()
     {
+        Nav.LocationChanged -= OnLocationChanged;
         objRef?.Dispose();
     }
 }

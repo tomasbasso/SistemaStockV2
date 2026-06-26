@@ -42,24 +42,32 @@
     else
     {
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            @foreach (var cat in items)
+            @for (var i = 0; i < items.Count; i++)
             {
-                <div class="premium-card p-6 flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-                    <div>
-                        <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-[var(--color-primary)] mb-4">
+                var cat = items[i];
+                var color = GetCategoryColor(i);
+                productCounts.TryGetValue(cat.Id, out var productCount);
+                <div class="premium-card overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300"
+                     style="border-top: 3px solid @color">
+                    <div class="p-6">
+                        <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4 text-lg"
+                             style="background-color: @(color)22; color: @color">
                             <i class="bi bi-tag-fill"></i>
                         </div>
-                        <h3 class="text-lg font-semibold text-white mb-1">@cat.Name</h3>
+                        <h3 class="text-base font-bold text-[var(--color-ink)] mb-1">@cat.Name</h3>
+                        <p class="text-sm text-[var(--color-muted)]">
+                            @productCount producto@(productCount == 1 ? "" : "s")
+                        </p>
                     </div>
-                    
-                    <div class="flex items-center justify-end gap-2 mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                    <div class="px-6 pb-5 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button @onclick="() => OpenViewProducts(cat)" title="Ver productos" class="w-8 h-8 rounded-md bg-white/5 text-gray-300 hover:text-white hover:bg-[var(--color-primary)] transition-colors flex items-center justify-center">
                             <i class="bi bi-eye"></i>
                         </button>
-                        <button @onclick="() => OpenEdit(cat)" class="w-8 h-8 rounded-md bg-white/5 text-gray-300 hover:text-white hover:bg-[var(--color-primary)] transition-colors flex items-center justify-center">
+                        <button @onclick="() => OpenEdit(cat)" title="Editar" class="w-8 h-8 rounded-md bg-white/5 text-gray-300 hover:text-white hover:bg-[var(--color-primary)] transition-colors flex items-center justify-center">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button @onclick="() => OpenDelete(cat)" class="w-8 h-8 rounded-md bg-white/5 text-gray-300 hover:text-white hover:bg-[var(--color-danger)] transition-colors flex items-center justify-center">
+                        <button @onclick="() => OpenDelete(cat)" title="Eliminar" class="w-8 h-8 rounded-md bg-white/5 text-gray-300 hover:text-white hover:bg-[var(--color-danger)] transition-colors flex items-center justify-center">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -162,7 +170,16 @@
 
 @code {
     private List<Categoria> items = new();
+    private Dictionary<Guid, int> productCounts = new();
     private bool isLoading = true;
+
+    private static readonly string[] CategoryColors =
+    [
+        "#6366f1", "#8b5cf6", "#ec4899", "#f59e0b",
+        "#10b981", "#06b6d4", "#f97316", "#14b8a6"
+    ];
+
+    private static string GetCategoryColor(int index) => CategoryColors[index % CategoryColors.Length];
     
     private bool isModalOpen = false;
     private bool isDeleteModalOpen = false;
@@ -187,6 +204,10 @@
         {
             isLoading = true;
             items = await Data.GetCategoriasAsync();
+            var allProducts = await Data.GetProductosAsync();
+            productCounts = allProducts
+                .GroupBy(p => p.CategoryId)
+                .ToDictionary(g => g.Key, g => g.Count());
         }
         catch (Exception ex)
         {
