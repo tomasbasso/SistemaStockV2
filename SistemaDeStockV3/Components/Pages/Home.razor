@@ -134,22 +134,60 @@
 
         </div>
 
-        @* CHART V2.0 *@
-        <div class="dashboard-stat-card mb-5 p-0 group overflow-hidden">
+        @* CHART — empty state hasta tener datos históricos reales *@
+        <div class="dashboard-stat-card mb-5 p-0 overflow-hidden">
             <div class="p-6 pb-0 flex items-center justify-between">
                 <div>
                     <h3 class="font-extrabold text-[var(--color-text-primary)] text-lg">Evolución de Ingresos</h3>
                     <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--color-text-secondary)] mt-0.5">Últimos 7 días</p>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span class="flex items-center gap-1.5 px-3 py-1 bg-[var(--color-success-bg)] text-[var(--color-success-foreground)] rounded-lg text-xs font-bold border border-[var(--color-success)]/20 shadow-sm">
-                        <i class="bi bi-graph-up-arrow"></i> +14.5%
-                    </span>
+            </div>
+
+            @if (CantidadVentasHoy == 0 && !UltimosMovimientos.Any())
+            {
+                @* Empty state: sin ventas aún *@
+                <div class="relative px-6 pb-8 pt-4">
+                    @* Ghost chart SVG *@
+                    <div class="absolute inset-0 overflow-hidden pointer-events-none px-6 pt-4 pb-8">
+                        <svg viewBox="0 0 600 120" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" class="w-full h-full">
+                            <defs>
+                                <linearGradient id="chartGhost" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="var(--color-primary)" stop-opacity="0.06"/>
+                                    <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0"/>
+                                </linearGradient>
+                            </defs>
+                            <path d="M0,90 C60,80 120,55 180,62 C240,68 300,30 360,38 C420,46 480,18 600,24 L600,120 L0,120 Z"
+                                  fill="url(#chartGhost)"/>
+                            <path d="M0,90 C60,80 120,55 180,62 C240,68 300,30 360,38 C420,46 480,18 600,24"
+                                  stroke="var(--color-primary)" stroke-width="2.5" fill="none"
+                                  stroke-dasharray="6,5" opacity="0.18"/>
+                            @* Puntos del ghost *@
+                            @foreach (var (cx, cy) in new[]{(0,90),(100,70),(200,62),(300,30),(400,38),(500,18),(600,24)})
+                            {
+                                <circle cx="@cx" cy="@cy" r="4" fill="white" stroke="var(--color-primary)" stroke-width="2" opacity="0.18"/>
+                            }
+                        </svg>
+                    </div>
+
+                    @* Contenido central *@
+                    <div class="relative z-10 flex flex-col items-center justify-center py-8 text-center gap-3">
+                        <div class="w-14 h-14 rounded-2xl bg-[var(--color-primary)]/8 flex items-center justify-center mb-1">
+                            <i class="bi bi-graph-up-arrow text-2xl text-[var(--color-primary)]/50"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-[var(--color-text-primary)]">El gráfico aparecerá con tus primeras ventas</p>
+                        <p class="text-xs text-[var(--color-text-secondary)] max-w-xs">Registrá una venta para comenzar a ver la evolución de ingresos de los últimos 7 días.</p>
+                        <button @onclick='() => Nav.NavigateTo("/ventas")' class="btn btn-primary btn-sm mt-1">
+                            <i class="bi bi-plus-circle"></i> Nueva Venta
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <div class="px-3 pb-3">
-                @* <DashboardChart Labels="@ChartLabels" Data="@ChartData" /> *@
-            </div>
+            }
+            else
+            {
+                <div class="px-3 pb-3">
+                    <DashboardChart Labels="@ChartLabels" Data="@ChartData" />
+                </div>
+            }
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -192,7 +230,13 @@
                 <div class="p-5 space-y-2">
                     @if (!TopRotacionBaja.Any())
                     {
-                        <p class="text-[var(--color-text-secondary)] text-sm py-4 text-center">Todo con rotación aceptable.</p>
+                        <div class="flex flex-col items-center justify-center py-8 text-center gap-2">
+                            <div class="w-12 h-12 rounded-xl bg-[var(--color-success)]/10 flex items-center justify-center mb-1">
+                                <i class="bi bi-check2-circle text-2xl text-[var(--color-success)]"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-[var(--color-text-primary)]">Todos los productos rotan bien</p>
+                            <p class="text-xs text-[var(--color-text-secondary)]">No hay productos con baja rotación en este momento.</p>
+                        </div>
                     }
                     else
                     {
@@ -225,9 +269,12 @@
                 <div class="flex-1 overflow-y-auto">
                     @if (!ProductosBajoStock.Any())
                     {
-                        <div class="p-8 text-center text-[var(--color-text-secondary)] h-full flex flex-col items-center justify-center">
-                            <i class="bi bi-check-circle text-4xl text-[var(--color-success)]/50 mb-3 block"></i>
-                            El stock está en niveles óptimos.
+                        <div class="flex flex-col items-center justify-center h-full py-10 text-center gap-2">
+                            <div class="w-14 h-14 rounded-2xl bg-[var(--color-success)]/10 flex items-center justify-center mb-1">
+                                <i class="bi bi-shield-check text-2xl text-[var(--color-success)]"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-[var(--color-text-primary)]">Stock en niveles óptimos</p>
+                            <p class="text-xs text-[var(--color-text-secondary)] max-w-[180px]">Todos los productos están por encima de su mínimo configurado.</p>
                         </div>
                     }
                     else
@@ -273,8 +320,25 @@
                 <div class="p-6 flex-1 overflow-y-auto">
                     @if (!UltimosMovimientos.Any())
                     {
-                        <div class="text-center text-[var(--color-text-secondary)] py-8">
-                            Sin movimientos registrados hoy.
+                        <div class="flex flex-col items-center justify-center h-full py-6 text-center gap-3">
+                            @* Timeline placeholder visual *@
+                            <div class="flex flex-col gap-2 opacity-20 mb-2 pointer-events-none" aria-hidden="true">
+                                @for (int i = 0; i < 3; i++)
+                                {
+                                    <div class="flex items-center gap-3 pl-1">
+                                        <div class="w-5 h-5 rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface)]"></div>
+                                        <div class="h-2 rounded-full bg-[var(--color-border)]" style="width: @(60 + i * 20)px"></div>
+                                    </div>
+                                }
+                            </div>
+                            <div class="w-11 h-11 rounded-xl bg-[var(--color-primary)]/8 flex items-center justify-center">
+                                <i class="bi bi-clock-history text-xl text-[var(--color-primary)]/40"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-[var(--color-text-primary)]">Sin actividad hoy</p>
+                            <p class="text-xs text-[var(--color-text-secondary)]">Las ventas e ingresos<br/>registrados aparecerán acá.</p>
+                            <button @onclick='() => Nav.NavigateTo("/finanzas")' class="btn btn-ghost btn-sm mt-1">
+                                <i class="bi bi-plus"></i> Registrar movimiento
+                            </button>
                         </div>
                     }
                     else
