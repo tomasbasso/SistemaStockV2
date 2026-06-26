@@ -191,6 +191,8 @@ a { color: inherit; }
     box-shadow:
         0 1px 3px rgba(30, 41, 59, 0.04),
         0 6px 20px -6px rgba(30, 41, 59, 0.08);
+    /* permite que el border-left en línea override el 1px border */
+    border-left-width: 1px;
 }
 .dashboard-stat-card:hover {
     box-shadow:

@@ -101,6 +101,7 @@
     --color-danger-bg: rgba(220, 38, 38, 0.10);
     --color-danger-foreground: #7F1D1D;
     --color-neutral: #94A3B8;
+    --color-info: #0EA5E9;
     --font-display: "Outfit", "Segoe UI", sans-serif;
     --animate-fade-in: fade-in 0.3s ease-out;
   }
@@ -403,6 +404,9 @@
   .mr-2 {
     margin-right: calc(var(--spacing) * 2);
   }
+  .mb-0\.5 {
+    margin-bottom: calc(var(--spacing) * 0.5);
+  }
   .mb-1 {
     margin-bottom: calc(var(--spacing) * 1);
   }
@@ -505,6 +509,9 @@
   .h-10 {
     height: calc(var(--spacing) * 10);
   }
+  .h-11 {
+    height: calc(var(--spacing) * 11);
+  }
   .h-12 {
     height: calc(var(--spacing) * 12);
   }
@@ -597,6 +604,9 @@
   }
   .w-10 {
     width: calc(var(--spacing) * 10);
+  }
+  .w-11 {
+    width: calc(var(--spacing) * 11);
   }
   .w-12 {
     width: calc(var(--spacing) * 12);
@@ -872,6 +882,9 @@
   .rounded-2xl {
     border-radius: var(--radius-2xl);
   }
+  .rounded-\[1\.5rem\] {
+    border-radius: 1.5rem;
+  }
   .rounded-full {
     border-radius: calc(infinity * 1px);
   }
@@ -1108,20 +1121,32 @@
   .bg-\[var\(--color-danger-bg\)\] {
     background-color: var(--color-danger-bg);
   }
+  .bg-\[var\(--color-info\)\]\/0 {
+    background-color: color-mix(in srgb, #0EA5E9 0%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-info) 0%, transparent);
+    }
+  }
+  .bg-\[var\(--color-info\)\]\/10 {
+    background-color: color-mix(in srgb, #0EA5E9 10%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-info) 10%, transparent);
+    }
+  }
   .bg-\[var\(--color-neutral\)\]\/10 {
     background-color: color-mix(in srgb, #94A3B8 10%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-neutral) 10%, transparent);
     }
   }
-  .bg-\[var\(--color-neutral\)\]\/15 {
-    background-color: color-mix(in srgb, #94A3B8 15%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-neutral) 15%, transparent);
-    }
-  }
   .bg-\[var\(--color-primary\)\] {
     background-color: var(--color-primary);
+  }
+  .bg-\[var\(--color-primary\)\]\/0 {
+    background-color: color-mix(in srgb, #1E293B 0%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-primary) 0%, transparent);
+    }
   }
   .bg-\[var\(--color-primary\)\]\/10 {
     background-color: color-mix(in srgb, #1E293B 10%, transparent);
@@ -1179,6 +1204,12 @@
   }
   .bg-\[var\(--color-surface\)\] {
     background-color: var(--color-surface);
+  }
+  .bg-\[var\(--color-warning\)\]\/0 {
+    background-color: color-mix(in srgb, #D97706 0%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-warning) 0%, transparent);
+    }
   }
   .bg-\[var\(--color-warning\)\]\/10 {
     background-color: color-mix(in srgb, #D97706 10%, transparent);
@@ -1619,6 +1650,9 @@
   .text-\[var\(--color-danger-foreground\)\] {
     color: var(--color-danger-foreground);
   }
+  .text-\[var\(--color-info\)\] {
+    color: var(--color-info);
+  }
   .text-\[var\(--color-ink\)\] {
     color: var(--color-ink);
   }
@@ -1739,6 +1773,10 @@
   .italic {
     font-style: italic;
   }
+  .tabular-nums {
+    --tw-numeric-spacing: tabular-nums;
+    font-variant-numeric: var(--tw-ordinal,) var(--tw-slashed-zero,) var(--tw-numeric-figure,) var(--tw-numeric-spacing,) var(--tw-numeric-fraction,);
+  }
   .line-through {
     text-decoration-line: line-through;
   }
@@ -1767,9 +1805,6 @@
   }
   .opacity-\[0\.05\] {
     opacity: 0.05;
-  }
-  .opacity-\[0\.06\] {
-    opacity: 0.06;
   }
   .shadow-\[var\(--color-primary\)\]\/20 {
     --tw-shadow-alpha: 20%;
@@ -1860,6 +1895,16 @@
       }
     }
   }
+  .group-hover\:bg-\[var\(--color-info\)\]\/\[0\.025\] {
+    &:is(:where(.group):hover *) {
+      @media (hover: hover) {
+        background-color: color-mix(in srgb, #0EA5E9 2.5%, transparent);
+        @supports (color: color-mix(in lab, red, red)) {
+          background-color: color-mix(in oklab, var(--color-info) 2.5%, transparent);
+        }
+      }
+    }
+  }
   .group-hover\:bg-\[var\(--color-primary\)\] {
     &:is(:where(.group):hover *) {
       @media (hover: hover) {
@@ -1883,6 +1928,16 @@
         background-color: color-mix(in srgb, #1E293B 30%, transparent);
         @supports (color: color-mix(in lab, red, red)) {
           background-color: color-mix(in oklab, var(--color-primary) 30%, transparent);
+        }
+      }
+    }
+  }
+  .group-hover\:bg-\[var\(--color-primary\)\]\/\[0\.025\] {
+    &:is(:where(.group):hover *) {
+      @media (hover: hover) {
+        background-color: color-mix(in srgb, #1E293B 2.5%, transparent);
+        @supports (color: color-mix(in lab, red, red)) {
+          background-color: color-mix(in oklab, var(--color-primary) 2.5%, transparent);
         }
       }
     }
@@ -1913,6 +1968,16 @@
         background-color: color-mix(in srgb, #D97706 10%, transparent);
         @supports (color: color-mix(in lab, red, red)) {
           background-color: color-mix(in oklab, var(--color-warning) 10%, transparent);
+        }
+      }
+    }
+  }
+  .group-hover\:bg-\[var\(--color-warning\)\]\/\[0\.025\] {
+    &:is(:where(.group):hover *) {
+      @media (hover: hover) {
+        background-color: color-mix(in srgb, #D97706 2.5%, transparent);
+        @supports (color: color-mix(in lab, red, red)) {
+          background-color: color-mix(in oklab, var(--color-warning) 2.5%, transparent);
         }
       }
     }
@@ -1956,13 +2021,6 @@
     &:is(:where(.group):hover *) {
       @media (hover: hover) {
         opacity: 0.09;
-      }
-    }
-  }
-  .group-hover\:opacity-\[0\.10\] {
-    &:is(:where(.group):hover *) {
-      @media (hover: hover) {
-        opacity: 0.10;
       }
     }
   }
@@ -2640,6 +2698,7 @@ a {
   overflow: hidden;
   transition: box-shadow 0.2s, transform 0.2s;
   box-shadow: 0 1px 3px rgba(30, 41, 59, 0.04), 0 6px 20px -6px rgba(30, 41, 59, 0.08);
+  border-left-width: 1px;
 }
 .dashboard-stat-card:hover {
   box-shadow: 0 4px 8px rgba(30, 41, 59, 0.06), 0 12px 30px -6px rgba(30, 41, 59, 0.14);
@@ -3039,6 +3098,26 @@ button.bg-\[var\(--color-primary\)\], button.bg-\[var\(--color-danger\)\], butto
   syntax: "*";
   inherits: false;
 }
+@property --tw-ordinal {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-slashed-zero {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-numeric-figure {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-numeric-spacing {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-numeric-fraction {
+  syntax: "*";
+  inherits: false;
+}
 @property --tw-shadow {
   syntax: "*";
   inherits: false;
@@ -3247,6 +3326,11 @@ button.bg-\[var\(--color-primary\)\], button.bg-\[var\(--color-danger\)\], butto
       --tw-leading: initial;
       --tw-font-weight: initial;
       --tw-tracking: initial;
+      --tw-ordinal: initial;
+      --tw-slashed-zero: initial;
+      --tw-numeric-figure: initial;
+      --tw-numeric-spacing: initial;
+      --tw-numeric-fraction: initial;
       --tw-shadow: 0 0 #0000;
       --tw-shadow-color: initial;
       --tw-shadow-alpha: 100%;
