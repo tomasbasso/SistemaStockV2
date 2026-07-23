@@ -108,7 +108,7 @@
                                 <td class="px-6 py-4 text-sm text-right text-gray-300">@r.StockActual</td>
                                 <td class="px-6 py-4 text-sm text-right font-semibold">@r.Rotacion.ToString("N2")</td>
                                 <td class="px-6 py-4 text-sm text-right text-gray-300">@r.ValorInmovilizado.ToString("C")</td>
-                                <td class="px-6 py-4 text-sm text-right @(r.MargenUnitario < 0 ? "text-red-400" : "text-gray-200")">@r.MargenUnitario.ToString("P1")</td>
+                                <td class="px-6 py-4 text-sm text-right @(r.MargenUnitario < 0 ? "text-red-400" : "text-gray-300")">@r.MargenUnitario.ToString("P1")</td>
                                 <td class="px-6 py-4 text-center text-lg">@r.Tendencia</td>
                                 <td class="px-6 py-4 text-center text-sm text-gray-300">@((r.UltimaVenta?.ToString("dd/MM/yyyy")) ?? "—")</td>
                                 <td class="px-6 py-4 text-center">

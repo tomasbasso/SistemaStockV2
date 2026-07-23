@@ -15,7 +15,6 @@
 
   /* Fondos y superficies */
   --color-bg:      #F8FAFC;   /* Fondo general de la app          */
-  --color-base:    #F8FAFC;   /* Alias para compatibilidad        */
   --color-surface: #FFFFFF;   /* Cards, paneles, modales          */
   --color-card:    #FFFFFF;
 
@@ -49,6 +48,12 @@
   /* Info */
   --color-info:               #0EA5E9;
 
+  /* Secundario — acento para montos/dinero (precios, totales) */
+  --color-secondary:          #059669;
+
+  /* Superficie elevada — tiles/paneles dentro de una card (buscador, inputs, grillas) */
+  --color-surface-2:          #F1F5F9;
+
   /* Sidebar (fondo sólido navy) */
   --color-sidebar: #1E293B;
 
@@ -69,15 +74,40 @@
   }
 }
 
+/* ── Fuentes locales (empaquetadas en wwwroot/fonts, sin CDN) ── */
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("../fonts/NunitoSans-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/NunitoSans-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("../fonts/Outfit-Regular.woff2") format("woff2");
+}
+
 /* ── Dark Mode Nativo (Punto 2) ──────────────────────────── */
 :root.dark {
   --color-bg: #0B0F19;
-  --color-base: #0B0F19;
   --color-surface: #111827;
   --color-card: #111827;
 
   --color-border: #1F2937;
   --color-line: #1F2937;
+  --color-surface-2: #1E293B;
 
   --color-text-primary: #F9FAFB;
   --color-text-secondary: #9CA3AF;
@@ -88,6 +118,7 @@
 
   --color-sidebar: #0B0F19;
   --color-primary: #3B82F6; /* Un azul corporativo más profesional y sobrio */
+  --color-secondary: #10B981; /* Más brillante que en claro para que resalte sobre navy oscuro */
 }
 
 /* ── Base ────────────────────────────────────────────────── */
@@ -515,7 +546,8 @@ button.bg-\[var\(--color-success\)\] {
     color: #ffffff !important;
 }
 
-/* text-gray-300 / 400 / 500 → muted */
+/* text-gray-200 / 300 / 400 / 500 → muted */
+.text-gray-200 { color: var(--color-text-soft) !important; }
 .text-gray-300 { color: var(--color-text-soft) !important; }
 .text-gray-400 { color: var(--color-muted) !important; }
 .text-gray-500 { color: var(--color-muted) !important; }
@@ -532,10 +564,10 @@ button.bg-\[var\(--color-success\)\] {
     color: #ffffff !important;
 }
 
-/* Fondos negros translúcidos → superficie clara */
-.bg-black\/10 { background-color: rgba(248, 250, 252, 0.80) !important; }
-.bg-black\/20 { background-color: var(--color-surface) !important; border-color: var(--color-border) !important; }
-.bg-black\/30 { background-color: rgba(248, 250, 252, 0.95) !important; }
+/* Fondos negros translúcidos → tinte sutil relativo a la superficie (theme-aware) */
+.bg-black\/10 { background-color: color-mix(in srgb, var(--color-ink) 6%, var(--color-surface)) !important; }
+.bg-black\/20 { background-color: var(--color-surface-2) !important; border-color: var(--color-border) !important; }
+.bg-black\/30 { background-color: color-mix(in srgb, var(--color-ink) 10%, var(--color-surface)) !important; }
 .bg-black\/40 { background-color: var(--color-bg) !important; }
 .bg-black\/60 { background-color: rgba(30, 41, 59, 0.40) !important; }
 

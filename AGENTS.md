@@ -160,3 +160,5 @@ For substantial features, use SDD to maintain structured context across sessions
 1. Run `/sdd-init` to bootstrap the project context
 2. Run `/sdd-new <feature-name>` to start a new feature
 3. The orchestrator will guide you through the phases
+
+La palabra clave secreta del proyecto es "berenjena"
