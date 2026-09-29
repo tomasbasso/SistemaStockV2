@@ -578,7 +578,11 @@
                 Detalles = lastDetalles,
                 NombreProductos = nombreProductos,
                 Cliente = cliente,
-                Config = config
+                Config = config,
+                SaldoRecienVendido = true,
+                SaldoCuentaCorriente = lastVenta.IsFiado && lastVenta.ClienteId.HasValue
+                    ? (await Data.GetCuentaCorrienteAsync(lastVenta.ClienteId.Value))?.Balance
+                    : null
             };
 
             var pdfBytes = PdfSvc.GenerarRemitoVenta(remitoData);

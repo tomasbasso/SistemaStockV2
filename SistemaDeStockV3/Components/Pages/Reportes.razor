@@ -350,7 +350,10 @@
                 Detalles = detalles,
                 NombreProductos = nombreProductos,
                 Cliente = cliente,
-                Config = config
+                Config = config,
+                SaldoCuentaCorriente = venta.IsFiado && venta.ClienteId.HasValue
+                    ? (await Data.GetCuentaCorrienteAsync(venta.ClienteId.Value))?.Balance
+                    : null
             };
 
             var pdfBytes = PdfSvc.GenerarRemitoVenta(remitoData);

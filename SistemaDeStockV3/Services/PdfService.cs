@@ -47,6 +47,15 @@ namespace SistemaDeStockV3.Services
         public Dictionary<Guid, string> NombreProductos { get; set; } = new();
         public Cliente? Cliente { get; set; }
         public ConfiguracionApp Config { get; set; } = new();
+
+        /// <summary>Saldo de la cuenta corriente del cliente al emitir el remito. Solo se usa en ventas fiadas.</summary>
+        public decimal? SaldoCuentaCorriente { get; set; }
+
+        /// <summary>
+        /// True si el saldo es el de recién vendido (incluye esta venta y ninguna posterior): permite mostrar
+        /// el saldo anterior. En una reimpresión el saldo ya tiene otros movimientos y solo se muestra el actual.
+        /// </summary>
+        public bool SaldoRecienVendido { get; set; }
     }
 
     /// <summary>
@@ -205,15 +214,22 @@ namespace SistemaDeStockV3.Services
                         row.RelativeItem().Element(c => BloqueCliente(c, e, data.Cliente, "CLIENTE", compacto: true));
                     });
 
+                    if (v.IsFiado)
+                        col.Item().PaddingTop(10).Element(AvisoCuentaCorriente);
+
                     col.Item().PaddingTop(12).Element(c => TablaItems(c, lineas, compacto: true));
 
                     col.Item().PaddingTop(10).ShowEntire().Column(fin =>
                     {
                         fin.Item().AlignRight().Width(190).Element(c => BloqueTotales(c, e, lineas, v.Total, compacto: true));
+
+                        if (v.IsFiado && data.SaldoCuentaCorriente.HasValue)
+                            fin.Item().PaddingTop(8).AlignRight().Width(190).Element(c => SaldoCuenta(c, data.SaldoCuentaCorriente.Value, v.Total, data.SaldoRecienVendido));
+
                         fin.Item().PaddingTop(36).Row(r =>
                         {
                             r.Spacing(28);
-                            r.RelativeItem().Element(c => LineaFirma(c, "Firma"));
+                            r.RelativeItem().Element(c => LineaFirma(c, v.IsFiado ? "Firma del cliente (conforme)" : "Firma"));
                             r.RelativeItem().Element(c => LineaFirma(c, "Aclaración"));
                         });
                     });
@@ -613,6 +629,50 @@ namespace SistemaDeStockV3.Services
                  col.Item().Text(detalle).FontSize(7.5f)
                      .FontColor(colorValor == EstiloPdf.Tinta ? EstiloPdf.Suave : colorValor);
              });
+        }
+
+        /// <summary>Franja que deja claro que la venta no se cobró y se suma a la deuda del cliente.</summary>
+        private static void AvisoCuentaCorriente(IContainer c)
+        {
+            c.BorderLeft(2.5f).BorderColor(EstiloPdf.Deuda).Background("#FEF3F2")
+             .PaddingVertical(6).PaddingHorizontal(9)
+             .Column(col =>
+             {
+                 col.Item().Text("VENTA A CUENTA CORRIENTE")
+                     .FontSize(8).Bold().FontColor(EstiloPdf.Deuda).LetterSpacing(0.1f);
+                 col.Item().Text("El importe de este remito queda pendiente de pago y se suma al saldo del cliente.")
+                     .FontSize(7).FontColor(EstiloPdf.Texto);
+             });
+        }
+
+        /// <summary>Resumen de la cuenta corriente: cuánto debía antes de esta venta y cuánto debe ahora.</summary>
+        private static void SaldoCuenta(IContainer c, decimal saldo, decimal totalVenta, bool desglosar)
+        {
+            var anterior = saldo - totalVenta;
+            var color = saldo > 0 ? EstiloPdf.Deuda : saldo < 0 ? EstiloPdf.AFavor : EstiloPdf.Tinta;
+
+            c.Border(0.75f).BorderColor(EstiloPdf.Linea).Padding(7).Column(col =>
+            {
+                col.Item().Text("CUENTA CORRIENTE").FontSize(6).SemiBold().FontColor(EstiloPdf.Suave).LetterSpacing(0.12f);
+                if (desglosar)
+                {
+                    col.Item().PaddingTop(3).Row(r =>
+                    {
+                        r.RelativeItem().Text("Saldo anterior").FontSize(7.5f).FontColor(EstiloPdf.Suave);
+                        r.AutoItem().Text(Moneda(anterior)).FontSize(7.5f).FontColor(EstiloPdf.Texto);
+                    });
+                    col.Item().Row(r =>
+                    {
+                        r.RelativeItem().Text("Esta venta").FontSize(7.5f).FontColor(EstiloPdf.Suave);
+                        r.AutoItem().Text("+ " + Moneda(totalVenta)).FontSize(7.5f).FontColor(EstiloPdf.Texto);
+                    });
+                }
+                col.Item().PaddingTop(3).BorderTop(desglosar ? 0.5f : 0).BorderColor(EstiloPdf.Linea).PaddingTop(desglosar ? 3 : 0).Row(r =>
+                {
+                    r.RelativeItem().Text(saldo < 0 ? "Saldo a favor" : desglosar ? "Saldo actual" : $"Saldo al {DateTime.Now:dd/MM/yyyy}").FontSize(8).SemiBold().FontColor(EstiloPdf.Tinta);
+                    r.AutoItem().Text(Moneda(Math.Abs(saldo))).FontSize(9).Bold().FontColor(color);
+                });
+            });
         }
 
         private static void LineaFirma(IContainer c, string etiqueta)

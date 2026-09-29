@@ -119,6 +119,22 @@ public class PdfServiceTests
         AssertEsPdf(_pdf.GenerarRemitoVenta(Remito(Config(), cliente: null)));
     }
 
+    [Theory]
+    [InlineData(true, 3001, true)]    // recién vendido: con saldo anterior
+    [InlineData(true, 3001, false)]   // reimpresión: solo saldo actual
+    [InlineData(true, -500, false)]   // saldo a favor
+    [InlineData(true, null, true)]    // sin cuenta corriente cargada
+    [InlineData(false, 3001, true)]   // contado: ignora el saldo
+    public void RemitoFiado_ConSaldo_GeneraPdf(bool fiado, int? saldo, bool recienVendido)
+    {
+        var data = Remito(Config(LogoPng), new Cliente { Name = "Juan Pérez" });
+        data.Venta.IsFiado = fiado;
+        data.SaldoCuentaCorriente = saldo;
+        data.SaldoRecienVendido = recienVendido;
+
+        AssertEsPdf(_pdf.GenerarRemitoVenta(data));
+    }
+
     [Fact]
     public void EstadoDeCuenta_ConVentas_Y_Vacio_GeneraPdf()
     {
