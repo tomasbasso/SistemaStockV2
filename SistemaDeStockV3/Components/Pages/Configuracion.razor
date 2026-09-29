@@ -2,6 +2,8 @@
 @inject DataService Data
 @inject NotificationService Notifications
 @inject SistemaDeStockV3.Services.BackupService Backup
+@inject PdfService PdfSvc
+@inject IJSRuntime JS
 @using CommunityToolkit.Maui.Storage
 @using Microsoft.Maui.ApplicationModel
 @using Microsoft.Maui.Storage
@@ -84,6 +86,104 @@
                 </div>
             }
         </div>
+
+        <div class="premium-card p-8 mt-6">
+            <h3 class="text-xl font-bold text-white flex items-center gap-2 border-b border-white/5 pb-4 mb-6">
+                <i class="bi bi-file-earmark-richtext text-[var(--color-primary)]"></i>
+                Identidad en documentos PDF
+            </h3>
+
+            <p class="text-gray-400 mb-6 text-sm">
+                El logo y el color de marca se aplican a presupuestos, remitos y estados de cuenta. Los cambios se guardan al instante.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-[1fr_15rem] gap-8">
+                <div class="space-y-6">
+                    <!-- Logo -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Logo del negocio</label>
+                        <div class="h-32 rounded-xl border border-white/10 bg-white flex items-center justify-center p-4 overflow-hidden">
+                            @if (logoDataUrl != null)
+                            {
+                                <img src="@logoDataUrl" alt="Logo del negocio" class="max-h-full max-w-full object-contain" />
+                            }
+                            else
+                            {
+                                <div class="text-center text-sm text-gray-500">
+                                    <i class="bi bi-image text-2xl block mb-1"></i>
+                                    Sin logo: los documentos muestran el nombre del negocio
+                                </div>
+                            }
+                        </div>
+                        <div class="flex flex-wrap gap-3 mt-3">
+                            <button type="button" class="btn btn-secondary flex items-center gap-2" @onclick="CargarLogo" disabled="@isProcessingLogo">
+                                @if (isProcessingLogo)
+                                {
+                                    <i class="bi bi-arrow-repeat animate-spin"></i>
+                                    <span>Procesando...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-upload"></i>
+                                    <span>@(logoDataUrl == null ? "Cargar logo" : "Cambiar logo")</span>
+                                }
+                            </button>
+                            @if (logoDataUrl != null)
+                            {
+                                <button type="button" class="btn btn-ghost flex items-center gap-2" @onclick="QuitarLogo" disabled="@isProcessingLogo">
+                                    <i class="bi bi-x-lg"></i>
+                                    <span>Quitar</span>
+                                </button>
+                            }
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2">PNG o JPG. Los márgenes blancos se recortan solos.</p>
+                    </div>
+
+                    <!-- Color de marca -->
+                    <div>
+                        <label for="color-marca" class="block text-sm font-medium text-gray-300 mb-2">Color de marca</label>
+                        <div class="flex items-center gap-3">
+                            <input id="color-marca" type="color" value="@colorMarca" @onchange="CambiarColor"
+                                   class="h-11 w-16 cursor-pointer rounded-lg border border-white/10 bg-transparent p-1" />
+                            <span class="font-mono text-sm text-gray-300">@colorMarca</span>
+                            @if (colorDetectado)
+                            {
+                                <span class="text-xs text-gray-400 flex items-center gap-1">
+                                    <i class="bi bi-magic"></i> tomado del logo
+                                </span>
+                            }
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2">Se usa en la franja superior, el número de documento y los detalles. La estructura queda en gris oscuro para que combine con cualquier logo.</p>
+                    </div>
+                </div>
+
+                <!-- Vista previa -->
+                <div>
+                    <span class="block text-sm font-medium text-gray-300 mb-2">Vista previa</span>
+                    <button type="button" class="block w-full rounded-lg overflow-hidden border border-white/10 bg-white shadow-lg aspect-[210/297] relative cursor-zoom-in"
+                            @onclick="() => previewAmpliada = true" disabled="@(vistaPreviaDataUrl == null)" title="Ver en grande">
+                        @if (vistaPreviaDataUrl != null)
+                        {
+                            <img src="@vistaPreviaDataUrl" alt="Vista previa de un presupuesto" class="w-full h-full object-contain" />
+                        }
+                        @if (isRenderingPreview)
+                        {
+                            <div class="absolute inset-0 flex items-center justify-center bg-white/60">
+                                <i class="bi bi-arrow-repeat animate-spin text-2xl text-gray-500"></i>
+                            </div>
+                        }
+                    </button>
+                    <p class="text-xs text-gray-400 mt-2 text-center">Presupuesto de ejemplo · clic para ampliar</p>
+                </div>
+            </div>
+        </div>
+
+        @if (previewAmpliada && vistaPreviaDataUrl != null)
+        {
+            <div class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 cursor-zoom-out" @onclick="() => previewAmpliada = false">
+                <img src="@vistaPreviaDataUrl" alt="Vista previa ampliada" class="max-h-full max-w-full rounded-lg shadow-2xl bg-white" />
+            </div>
+        }
 
         <div class="premium-card p-8 mt-6">
             <h3 class="text-xl font-bold text-white flex items-center gap-2 border-b border-white/5 pb-4 mb-6">
@@ -177,17 +277,173 @@
     private string alertIcon = "";
     private bool canBackup => !string.IsNullOrWhiteSpace(selectedFolder) && Directory.Exists(selectedFolder);
 
+    // Identidad de los PDFs
+    private string? logoDataUrl;
+    private string colorMarca = ConfiguracionApp.ColorMarcaPredeterminado;
+    private bool colorDetectado = false;
+    private bool isProcessingLogo = false;
+    private string? vistaPreviaDataUrl;
+    private bool isRenderingPreview = false;
+    private bool previewAmpliada = false;
+
+    private const int TamanoMaximoLogo = 15 * 1024 * 1024;
+
+    /// <summary>Resultado de logoMarca.procesar (wwwroot/js/logo-marca.js).</summary>
+    private sealed record LogoProcesado(string DataUrl, string? Color);
+
     protected override async Task OnInitializedAsync()
     {
         await LoadConfig();
         LoadBackupState();
+        _ = ActualizarVistaPreviaAsync();
     }
 
     private async Task LoadConfig()
     {
         isLoading = true;
         config = await Data.GetConfiguracionAsync() ?? new ConfiguracionApp();
+        colorMarca = config.ColorMarca;
+        logoDataUrl = config.LogoNegocio is { Length: > 0 } logo
+            ? $"data:image/png;base64,{Convert.ToBase64String(logo)}"
+            : null;
         isLoading = false;
+    }
+
+    private async Task CargarLogo()
+    {
+        try
+        {
+            var archivo = await MainThread.InvokeOnMainThreadAsync(() => FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Elegí el logo del negocio",
+                FileTypes = FilePickerFileType.Images
+            }));
+            if (archivo == null) return;
+
+            isProcessingLogo = true;
+            StateHasChanged();
+
+            byte[] original;
+            await using (var entrada = await archivo.OpenReadAsync())
+            using (var memoria = new MemoryStream())
+            {
+                await entrada.CopyToAsync(memoria);
+                original = memoria.ToArray();
+            }
+
+            if (original.Length > TamanoMaximoLogo)
+            {
+                Notifications.Warning("La imagen es demasiado pesada (máximo 15 MB).");
+                return;
+            }
+
+            var mime = Path.GetExtension(archivo.FileName).ToLowerInvariant() switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                ".bmp" => "image/bmp",
+                ".webp" => "image/webp",
+                _ => "image/png"
+            };
+
+            // El recorte, el redimensionado y la detección de color se hacen con canvas en el WebView.
+            var procesado = await JS.InvokeAsync<LogoProcesado>("logoMarca.procesar",
+                $"data:{mime};base64,{Convert.ToBase64String(original)}");
+            var logo = Convert.FromBase64String(procesado.DataUrl[(procesado.DataUrl.IndexOf(',') + 1)..]);
+
+            if (!PdfService.EsLogoValido(logo))
+            {
+                Notifications.Error("No se pudo usar esa imagen como logo. Probá con un PNG o JPG.");
+                return;
+            }
+
+            var color = procesado.Color ?? colorMarca;
+            await Data.SaveIdentidadDocumentosAsync(logo, color);
+
+            config.LogoNegocio = logo;
+            config.ColorMarca = colorMarca = color;
+            logoDataUrl = procesado.DataUrl;
+            colorDetectado = procesado.Color != null;
+
+            Notifications.Success(colorDetectado
+                ? "Logo guardado. El color de marca se tomó del logo."
+                : "Logo guardado.");
+            _ = ActualizarVistaPreviaAsync();
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"No se pudo cargar el logo: {ex.Message}");
+        }
+        finally
+        {
+            isProcessingLogo = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task QuitarLogo()
+    {
+        try
+        {
+            await Data.SaveIdentidadDocumentosAsync(null, colorMarca);
+            config.LogoNegocio = null;
+            logoDataUrl = null;
+            colorDetectado = false;
+            Notifications.Success("Logo quitado. Los documentos muestran el nombre del negocio.");
+            _ = ActualizarVistaPreviaAsync();
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"No se pudo quitar el logo: {ex.Message}");
+        }
+    }
+
+    private async Task CambiarColor(ChangeEventArgs e)
+    {
+        var color = e.Value?.ToString()?.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(color) || color == colorMarca) return;
+
+        try
+        {
+            await Data.SaveIdentidadDocumentosAsync(config.LogoNegocio, color);
+            config.ColorMarca = colorMarca = color;
+            colorDetectado = false;
+            _ = ActualizarVistaPreviaAsync();
+        }
+        catch (Exception ex)
+        {
+            Notifications.Error($"No se pudo guardar el color: {ex.Message}");
+        }
+    }
+
+    private async Task ActualizarVistaPreviaAsync()
+    {
+        isRenderingPreview = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            // Usa lo que está en pantalla (aunque no se haya guardado) para previsualizar nombre y datos.
+            var muestra = new ConfiguracionApp
+            {
+                NombreNegocio = config.NombreNegocio,
+                DireccionNegocio = config.DireccionNegocio,
+                Telefono = config.Telefono,
+                LogoNegocio = config.LogoNegocio,
+                ColorMarca = colorMarca
+            };
+            var png = await Task.Run(() => PdfSvc.GenerarVistaPreviaPresupuesto(muestra));
+            vistaPreviaDataUrl = $"data:image/png;base64,{Convert.ToBase64String(png)}";
+        }
+        catch (Exception ex)
+        {
+            vistaPreviaDataUrl = null;
+            Notifications.Error($"No se pudo generar la vista previa: {ex.Message}");
+        }
+        finally
+        {
+            isRenderingPreview = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task SaveConfig()
@@ -201,6 +457,7 @@
             isSaving = false;
             showSuccessMessage = true;
             Notifications.Success("Configuración guardada correctamente.");
+            _ = ActualizarVistaPreviaAsync(); // el nombre, la dirección y el teléfono salen en los PDFs
             _ = Task.Run(async () =>
             {
                 await Task.Delay(3000);

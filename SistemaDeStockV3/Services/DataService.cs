@@ -66,6 +66,26 @@ namespace SistemaDeStockV3.Services
             await _db.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// Guarda solo el logo y el color de los PDFs, sin tocar el resto de la configuración
+        /// (que puede tener cambios sin guardar en el formulario principal).
+        /// </summary>
+        public async Task SaveIdentidadDocumentosAsync(byte[]? logo, string colorMarca)
+        {
+            var existing = await _db.Configuraciones.FirstOrDefaultAsync();
+            if (existing == null)
+            {
+                existing = new ConfiguracionApp();
+                _db.Configuraciones.Add(existing);
+            }
+            var color = colorMarca?.Trim().ToUpperInvariant() ?? string.Empty;
+            existing.LogoNegocio = logo is { Length: > 0 } ? logo : null;
+            existing.ColorMarca = System.Text.RegularExpressions.Regex.IsMatch(color, "^#[0-9A-F]{6}$")
+                ? color
+                : ConfiguracionApp.ColorMarcaPredeterminado;
+            await _db.SaveChangesAsync();
+        }
+
         // CATEGORIAS
         
         public async Task<List<Categoria>> GetCategoriasAsync()

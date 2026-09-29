@@ -47,6 +47,8 @@ namespace SistemaDeStockV3.Data
                 entity.Property(e => e.UmbralRotacionBaja).HasConversion(decimalConverter).HasColumnType("TEXT");
                 entity.Property(e => e.UmbralRotacionMedia).HasConversion(decimalConverter).HasColumnType("TEXT");
                 entity.Property(e => e.DiasAlertaSinVenta);
+                entity.Property(e => e.LogoNegocio).HasColumnType("BLOB");
+                entity.Property(e => e.ColorMarca).IsRequired().HasMaxLength(7);
             });
 
             // --- Categorias ---
@@ -266,9 +268,10 @@ namespace SistemaDeStockV3.Data
                     await command.ExecuteNonQueryAsync();
                 }
 
-                // Configuracion umbrales rotación
+                // Configuracion umbrales rotación + identidad de los PDFs
                 command.CommandText = "PRAGMA table_info(Configuraciones);";
                 bool hasUmbralBaja = false, hasUmbralMedia = false, hasDiasSinVenta = false;
+                bool hasLogoNegocio = false, hasColorMarca = false;
                 using (var r = await command.ExecuteReaderAsync())
                 {
                     while (await r.ReadAsync())
@@ -277,7 +280,19 @@ namespace SistemaDeStockV3.Data
                         if (string.Equals(col, "UmbralRotacionBaja", StringComparison.OrdinalIgnoreCase)) hasUmbralBaja = true;
                         if (string.Equals(col, "UmbralRotacionMedia", StringComparison.OrdinalIgnoreCase)) hasUmbralMedia = true;
                         if (string.Equals(col, "DiasAlertaSinVenta", StringComparison.OrdinalIgnoreCase)) hasDiasSinVenta = true;
+                        if (string.Equals(col, "LogoNegocio", StringComparison.OrdinalIgnoreCase)) hasLogoNegocio = true;
+                        if (string.Equals(col, "ColorMarca", StringComparison.OrdinalIgnoreCase)) hasColorMarca = true;
                     }
+                }
+                if (!hasLogoNegocio)
+                {
+                    command.CommandText = "ALTER TABLE Configuraciones ADD COLUMN LogoNegocio BLOB NULL;";
+                    await command.ExecuteNonQueryAsync();
+                }
+                if (!hasColorMarca)
+                {
+                    command.CommandText = $"ALTER TABLE Configuraciones ADD COLUMN ColorMarca TEXT NOT NULL DEFAULT '{ConfiguracionApp.ColorMarcaPredeterminado}';";
+                    await command.ExecuteNonQueryAsync();
                 }
                 if (!hasUmbralBaja)
                 {

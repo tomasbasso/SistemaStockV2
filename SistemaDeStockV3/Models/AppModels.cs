@@ -213,6 +213,16 @@ namespace SistemaDeStockV3.Models
         public decimal UmbralRotacionBaja  { get; set; } = 1.0m;
         public decimal UmbralRotacionMedia { get; set; } = 4.0m;
         public int     DiasAlertaSinVenta  { get; set; } = 90;
+
+        /// <summary>Logo del negocio (PNG/JPG) que encabeza los PDFs. Null = se usa el nombre como texto.</summary>
+        public byte[]? LogoNegocio { get; set; }
+
+        /// <summary>Color de acento de los PDFs, en formato #RRGGBB. Se detecta del logo al cargarlo.</summary>
+        [MaxLength(7)]
+        [RegularExpression(@"^#[0-9A-Fa-f]{6}$", ErrorMessage = "Color inválido. Use el formato #RRGGBB.")]
+        public string ColorMarca { get; set; } = ColorMarcaPredeterminado;
+
+        public const string ColorMarcaPredeterminado = "#334155";
     }
 
     public class HistorialPrecio
