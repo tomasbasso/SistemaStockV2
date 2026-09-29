@@ -181,6 +181,21 @@ public class PdfServiceTests
     }
 
     [Fact]
+    public void Montos_SiempreEnFormatoArgentino_AunqueWindowsEsteEnIngles()
+    {
+        var original = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("en-US");
+            Assert.Equal("$ 55.000,00", PdfService.Moneda(55000m).Replace(' ', ' '));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
     public void VistaPrevia_DevuelvePng()
     {
         var png = _pdf.GenerarVistaPreviaPresupuesto(Config(LogoPng));

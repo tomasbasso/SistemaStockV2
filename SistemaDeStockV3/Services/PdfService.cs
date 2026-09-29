@@ -500,7 +500,7 @@ namespace SistemaDeStockV3.Services
                     var alterna = i % 2 == 1;
 
                     table.Cell().Element(x => CeldaFila(x, alterna, compacto)).AlignCenter()
-                        .Text(l.Cantidad.ToString(CultureInfo.CurrentCulture)).FontSize(tam).SemiBold().FontColor(EstiloPdf.Tinta);
+                        .Text(l.Cantidad.ToString(CulturaDocumentos)).FontSize(tam).SemiBold().FontColor(EstiloPdf.Tinta);
                     table.Cell().Element(x => CeldaFila(x, alterna, compacto))
                         .Text(l.Descripcion).FontSize(tam).FontColor(EstiloPdf.Texto);
                     table.Cell().Element(x => CeldaFila(x, alterna, compacto)).AlignRight()
@@ -722,7 +722,13 @@ namespace SistemaDeStockV3.Services
         // UTILIDADES
         // ──────────────────────────────────────────────────────────────────────────────────
 
-        private static string Moneda(decimal valor) => valor.ToString("C", CultureInfo.CurrentCulture);
+        /// <summary>
+        /// Los documentos se entregan a clientes argentinos: siempre "$ 1.234,56", aunque Windows
+        /// esté configurado en otro idioma (en inglés salía "$1,234.56").
+        /// </summary>
+        public static readonly CultureInfo CulturaDocumentos = CultureInfo.GetCultureInfo("es-AR");
+
+        public static string Moneda(decimal valor) => valor.ToString("C", CulturaDocumentos);
 
         private static string NombreProducto(Dictionary<Guid, string> nombres, Guid id) =>
             nombres.TryGetValue(id, out var n) && !string.IsNullOrWhiteSpace(n) ? n : "Producto";

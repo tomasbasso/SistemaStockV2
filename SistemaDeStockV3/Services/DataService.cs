@@ -746,7 +746,7 @@ namespace SistemaDeStockV3.Services
             {
                 var detalles = await _db.VentaDetalles
                     .Where(d => d.VentaId == v.Id)
-                    .Join(_db.Productos, d => d.ProductoId, p => p.Id, (d, p) => $"{d.Quantity}x {p.Name} ({d.UnitPrice:C})")
+                    .Join(_db.Productos, d => d.ProductoId, p => p.Id, (d, p) => $"{d.Quantity}x {p.Name} ({PdfService.Moneda(d.UnitPrice)})")
                     .ToListAsync();
 
                 r.Add(new VentaFiadaDetalle
