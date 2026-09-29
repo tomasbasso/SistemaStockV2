@@ -287,14 +287,8 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-1">Categoría *</label>
-                            <InputSelect @bind-Value="_nuevoProducto.CategoryId"
-                                         class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]">
-                                <option value="@Guid.Empty">-- Seleccionar --</option>
-                                @foreach (var c in _categorias)
-                                {
-                                    <option value="@c.Id">@c.Name</option>
-                                }
-                            </InputSelect>
+                            <AppSelect @bind-Value="_nuevoProducto.CategoryId" Placeholder="-- Seleccionar --" Items="@_categorias.Select(c => (c.Id, c.Name))"
+                                         class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]" />
                             <ValidationMessage For="() => _nuevoProducto.CategoryId" class="text-[var(--color-danger)] text-xs mt-1 block" />
                         </div>
 

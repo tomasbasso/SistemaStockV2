@@ -12,37 +12,52 @@ namespace SistemaDeStockV3.Services
         private const string LastCloseUtcKey = "Backup.LastCloseUtc";
         private const int RetentionCount = 15;
 
+        // Una base vacía (ej. el programa nuevo recién copiado, antes de restaurar) no se respalda:
+        // el cierre pisaría Backup_Stock_UltimoCierre.db y la rotación terminaría borrando respaldos reales.
+        private const string MensajeBaseVacia = "La base de datos está vacía: no se generó el respaldo para no pisar respaldos anteriores.";
+
         private readonly string _dbPath;
+
+        /// <summary>
+        /// Carpeta que se usa mientras el usuario no elija otra, para que haya respaldos
+        /// automáticos desde el primer día aunque nunca entre a Configuración.
+        /// </summary>
+        public string CarpetaPredeterminada { get; }
 
         public BackupService()
         {
             _dbPath = Path.Combine(FileSystem.AppDataDirectory, "stock.db");
+
+            var documentos = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            CarpetaPredeterminada = string.IsNullOrWhiteSpace(documentos)
+                ? Path.Combine(FileSystem.AppDataDirectory, "Respaldos")
+                : Path.Combine(documentos, "Sistema de Stock - Respaldos");
         }
 
         public async Task<Result<string>> ExportBackupAsync(CancellationToken cancellationToken = default)
         {
+            var temporal = Path.Combine(FileSystem.CacheDirectory, "export_backup.db");
             try
             {
                 if (!File.Exists(_dbPath))
                     return Result<string>.Fail("No se encontró la base de datos local para respaldar.");
 
-                CheckpointWal();
+                await Task.Run(() => RespaldoSqlite.CrearCopia(_dbPath, temporal), cancellationToken);
 
-                var fileName = $"Backup_Stock_{DateTime.Now:yyyyMMdd_HHmm}.db";
                 bool isSuccessful = false;
                 Exception? saveException = null;
 
-                using (var stream = new FileStream(_dbPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var stream = new FileStream(temporal, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    try 
+                    try
                     {
-                        var fileSaverResult = await MainThread.InvokeOnMainThreadAsync(async () => 
+                        var fileSaverResult = await MainThread.InvokeOnMainThreadAsync(async () =>
                         {
-                            return await FileSaver.Default.SaveAsync(fileName, stream, cancellationToken);
+                            return await FileSaver.Default.SaveAsync(NombreRespaldo(), stream, cancellationToken);
                         });
                         isSuccessful = fileSaverResult.IsSuccessful;
-                    } 
-                    catch (Exception ex) 
+                    }
+                    catch (Exception ex)
                     {
                         saveException = ex;
                     }
@@ -50,7 +65,7 @@ namespace SistemaDeStockV3.Services
 
                 if (saveException != null)
                     return Result<string>.Fail($"Error interno al guardar: {saveException.Message}");
-                    
+
                 if (!isSuccessful)
                     return Result<string>.Fail("La operación fue cancelada por el usuario o falló.");
 
@@ -61,10 +76,20 @@ namespace SistemaDeStockV3.Services
                 Console.WriteLine($"Error al exportar base de datos: {ex.Message}");
                 return Result<string>.Fail(ex.Message);
             }
+            finally
+            {
+                BorrarTemporal(temporal);
+            }
         }
 
+        /// <summary>
+        /// Restaura un respaldo elegido por el usuario. El archivo elegido solo se lee (se puede
+        /// volver a restaurar después) y la base actual se guarda antes como copia previa, que
+        /// también se puede restaurar para deshacer. La app debe reiniciarse después.
+        /// </summary>
         public async Task<Result<string>> RestoreBackupAsync()
         {
+            var temporal = Path.Combine(FileSystem.CacheDirectory, "restore_backup.db");
             try
             {
                 var customFileType = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
@@ -73,7 +98,7 @@ namespace SistemaDeStockV3.Services
                     { DevicePlatform.Android, new[] { "application/octet-stream", "application/x-sqlite3" } }
                 });
 
-                var pickResult = await MainThread.InvokeOnMainThreadAsync(async () => 
+                var pickResult = await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
                     return await FilePicker.Default.PickAsync(new PickOptions
                     {
@@ -89,38 +114,30 @@ namespace SistemaDeStockV3.Services
                 if (ext != ".db" && ext != ".sqlite" && ext != ".sqlite3")
                     return Result<string>.Fail($"El archivo '{pickResult.FileName}' no es una base de datos válida.");
 
-                // Check file exists
-                var pickedFilePath = pickResult.FullPath;
-
-                // Close database connections in the connection pool so we can overwrite the file
-                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-
-                // Force garbage collection in case there are undisposed contexts holding connections
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-
+                // Copia local del archivo elegido: en Android puede no ser una ruta del disco
                 using (var sourceStream = await pickResult.OpenReadAsync())
-                using (var destStream = new FileStream(_dbPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                using (var destStream = new FileStream(temporal, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
                     await sourceStream.CopyToAsync(destStream);
                 }
 
-                // Eliminar WAL/SHM de la sesión anterior: si quedan, SQLite los reaplica
-                // sobre la base restaurada y la restauración "no trae datos".
-                DeleteWalShmFiles();
+                // Cerrar las conexiones que EF Core dejó en el pool antes de reemplazar el contenido
+                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
 
-                // Forzar cierre de la app para que el usuario la reinicie con la base restaurada
-                // Esto evita que contextos EF Core en memoria pisen la base restaurada
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    Application.Current?.Quit();
-                });
+                var copiaPrevia = Path.Combine(CarpetaParaCopiaPrevia(), $"Backup_Stock_AntesDeRestaurar_{DateTime.Now:yyyyMMdd_HHmmss}.db");
+                var result = await Task.Run(() => RespaldoSqlite.Restaurar(temporal, _dbPath, copiaPrevia));
+                if (!result.Success)
+                    return result;
 
-                return Result<string>.Ok($"Respaldo '{pickResult.FileName}' restaurado. La aplicación se cerrará ahora para aplicar los cambios.");
+                return Result<string>.Ok($"Respaldo '{pickResult.FileName}' restaurado. Tus datos anteriores quedaron guardados en '{copiaPrevia}'.");
             }
             catch (Exception ex)
             {
                 return Result<string>.Fail($"Error al restaurar base de datos: {ex.Message}");
+            }
+            finally
+            {
+                BorrarTemporal(temporal);
             }
         }
 
@@ -134,37 +151,18 @@ namespace SistemaDeStockV3.Services
                 if (!File.Exists(_dbPath))
                     return Result<string>.Fail("No se encontró la base de datos.");
 
-                CheckpointWal();
+                if (RespaldoSqlite.EstaVacia(_dbPath))
+                    return Result<string>.Fail(MensajeBaseVacia);
 
-                var fileName = $"Backup_Stock_{DateTime.Now:yyyyMMdd_HHmm}.db";
-                var destinationPath = Path.Combine(targetFolder, fileName);
-
-                using (var sourceStream = new FileStream(_dbPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                using (var destStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    await sourceStream.CopyToAsync(destStream);
-                }
+                var destinationPath = Path.Combine(targetFolder, NombreRespaldo());
+                await Task.Run(() => RespaldoSqlite.CrearCopia(_dbPath, destinationPath));
 
                 // Update preferences
                 Preferences.Set(TargetFolderKey, targetFolder);
                 Preferences.Set(LastRunUtcKey, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
 
                 // Cleanup old backups
-                try
-                {
-                    var files = Directory.EnumerateFiles(targetFolder, "Backup_Stock_*.db")
-                        .Select(path => new FileInfo(path))
-                        .OrderByDescending(f => f.CreationTimeUtc)
-                        .ToList();
-
-                    if (files.Count > RetentionCount)
-                    {
-                        foreach (var file in files.Skip(RetentionCount))
-                        {
-                            try { file.Delete(); } catch { /* ignore */ }
-                        }
-                    }
-                }
+                try { RespaldoSqlite.LimpiarRespaldosViejos(targetFolder, RetentionCount); }
                 catch { /* Ignore cleanup errors */ }
 
                 var prefix = isAutomatic ? "automático" : "manual";
@@ -186,15 +184,11 @@ namespace SistemaDeStockV3.Services
                 if (!File.Exists(_dbPath))
                     return Result<string>.Fail("No se encontró la base de datos.");
 
-                CheckpointWal();
+                if (RespaldoSqlite.EstaVacia(_dbPath))
+                    return Result<string>.Fail(MensajeBaseVacia);
 
                 var destinationPath = Path.Combine(targetFolder, "Backup_Stock_UltimoCierre.db");
-                
-                using (var sourceStream = new FileStream(_dbPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                using (var destStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    await sourceStream.CopyToAsync(destStream);
-                }
+                await Task.Run(() => RespaldoSqlite.CrearCopia(_dbPath, destinationPath));
 
                 Preferences.Set(TargetFolderKey, targetFolder);
                 Preferences.Set(LastCloseUtcKey, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
@@ -211,8 +205,8 @@ namespace SistemaDeStockV3.Services
         {
             try
             {
-                var folder = Preferences.Get(TargetFolderKey, string.Empty);
-                if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+                var folder = GetConfiguredFolder();
+                if (!Directory.Exists(folder))
                     return Result<string>.Fail("No hay carpeta configurada para respaldos automáticos.");
 
                 var lastRunString = Preferences.Get(LastRunUtcKey, string.Empty);
@@ -233,38 +227,35 @@ namespace SistemaDeStockV3.Services
             }
         }
 
-        public string? GetConfiguredFolder() => Preferences.Get(TargetFolderKey, string.Empty);
-
-        private void CheckpointWal()
+        /// <summary>Carpeta elegida por el usuario o, si no eligió ninguna, la predeterminada (se crea si falta).</summary>
+        public string GetConfiguredFolder()
         {
-            try
-            {
-                using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_dbPath}");
-                conn.Open();
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
-                cmd.ExecuteNonQuery();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[Backup] CheckpointWal falló: {ex.Message}");
-            }
+            var carpeta = Preferences.Get(TargetFolderKey, string.Empty);
+            if (!string.IsNullOrWhiteSpace(carpeta))
+                return carpeta;
+
+            try { Directory.CreateDirectory(CarpetaPredeterminada); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Backup] No se pudo crear la carpeta predeterminada: {ex.Message}"); }
+            return CarpetaPredeterminada;
         }
 
-        private void DeleteWalShmFiles()
+        private static string NombreRespaldo() => $"Backup_Stock_{DateTime.Now:yyyyMMdd_HHmm}.db";
+
+        // Si la carpeta elegida no está disponible (ej. un pendrive desconectado), la copia
+        // previa a una restauración va a la predeterminada: nunca se restaura sin ella.
+        private string CarpetaParaCopiaPrevia()
         {
-            foreach (var suffix in new[] { "-wal", "-shm" })
-            {
-                try
-                {
-                    var path = _dbPath + suffix;
-                    if (File.Exists(path)) File.Delete(path);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[Backup] No se pudo eliminar {_dbPath}{suffix}: {ex.Message}");
-                }
-            }
+            var carpeta = GetConfiguredFolder();
+            if (!Directory.Exists(carpeta))
+                carpeta = CarpetaPredeterminada;
+            Directory.CreateDirectory(carpeta);
+            return carpeta;
+        }
+
+        private static void BorrarTemporal(string path)
+        {
+            try { if (File.Exists(path)) File.Delete(path); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Backup] No se pudo borrar {path}: {ex.Message}"); }
         }
 
         public DateTime? GetLastBackupUtc()

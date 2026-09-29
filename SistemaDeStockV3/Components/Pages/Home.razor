@@ -143,9 +143,9 @@
                 </div>
             </div>
 
-            @if (CantidadVentasHoy == 0 && !UltimosMovimientos.Any())
+            @if (!ChartData.Any(v => v > 0))
             {
-                @* Empty state: sin ventas aún *@
+                @* Empty state: sin ingresos en los últimos 7 días *@
                 <div class="relative px-6 pb-8 pt-4">
                     @* Ghost chart SVG *@
                     <div class="absolute inset-0 overflow-hidden pointer-events-none px-6 pt-4 pb-8">
@@ -385,8 +385,9 @@
     private List<MovimientoFinanciero> UltimosMovimientos = new();
     private List<RotacionProductoDto> TopRotacionBaja = new();
 
-    private List<string> ChartLabels = new() { "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom" };
-    private List<double> ChartData = new() { 12500, 15300, 14200, 22000, 18500, 29000, 11400 };
+    private static readonly string[] DiasCortos = { "Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb" };
+    private List<string> ChartLabels = new();
+    private List<double> ChartData = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -424,6 +425,10 @@
             TotalProductos = data.TotalProductos;
             ProductosBajoStock = data.BajoStock;
             UltimosMovimientos = data.UltimosMovimientos;
+
+            var ingresosSemana = await Data.GetIngresosPorDiaAsync(7);
+            ChartLabels = ingresosSemana.Select(d => $"{DiasCortos[(int)d.Dia.DayOfWeek]} {d.Dia.Day}").ToList();
+            ChartData = ingresosSemana.Select(d => (double)d.Total).ToList();
 
             RotacionAnual = await Data.CalcularRotacionAnualAsync();
             TopRotacionBaja = await Data.GetRotacionProductosAsync(null, null, true, 5);

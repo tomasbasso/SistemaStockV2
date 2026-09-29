@@ -1,6 +1,9 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SistemaDeStockV3.Models;
+using System.Data.Common;
 using System.Globalization;
 
 namespace SistemaDeStockV3.Data
@@ -24,6 +27,38 @@ namespace SistemaDeStockV3.Data
         public DbSet<Presupuesto> Presupuestos { get; set; }
         public DbSet<PresupuestoDetalle> PresupuestoDetalles { get; set; }
         public DbSet<HistorialPrecio> HistorialPrecios { get; set; }
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder.AddInterceptors(UnicodeCaseFunctionsInterceptor.Instance);
+        }
+
+        /// <summary>
+        /// El lower()/upper() nativo de SQLite solo convierte letras ASCII: lower('CAÑO') devuelve 'caÑo'.
+        /// EF traduce string.ToLower()/ToUpper() a esas funciones, así que las búsquedas con ñ o vocales
+        /// acentuadas en mayúscula no encontraban nada. Se reemplazan por la versión Unicode de .NET
+        /// en cada conexión que abre EF.
+        /// </summary>
+        private sealed class UnicodeCaseFunctionsInterceptor : DbConnectionInterceptor
+        {
+            public static readonly UnicodeCaseFunctionsInterceptor Instance = new();
+
+            public override void ConnectionOpened(DbConnection connection, ConnectionEndEventData eventData)
+                => Registrar(connection);
+
+            public override Task ConnectionOpenedAsync(DbConnection connection, ConnectionEndEventData eventData, CancellationToken cancellationToken = default)
+            {
+                Registrar(connection);
+                return Task.CompletedTask;
+            }
+
+            private static void Registrar(DbConnection connection)
+            {
+                if (connection is not SqliteConnection sqlite) return;
+                sqlite.CreateFunction("lower", (string? s) => s?.ToLowerInvariant(), isDeterministic: true);
+                sqlite.CreateFunction("upper", (string? s) => s?.ToUpperInvariant(), isDeterministic: true);
+            }
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -65,7 +100,8 @@ namespace SistemaDeStockV3.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.SKU).IsRequired().HasMaxLength(50);
-                entity.HasIndex(e => e.SKU).IsUnique();
+                // Único solo entre activos: un producto eliminado (soft-delete) libera su SKU
+                entity.HasIndex(e => e.SKU).IsUnique().HasFilter("\"IsDeleted\" = 0");
                 entity.Property(e => e.Price).HasConversion(decimalConverter).HasColumnType("TEXT");
                 entity.Property(e => e.Margen).HasConversion(decimalConverter).HasColumnType("TEXT");
                 entity.Property(e => e.PrecioCosto).HasConversion(decimalConverter).HasColumnType("TEXT");
@@ -436,6 +472,43 @@ namespace SistemaDeStockV3.Data
                         PrecioNuevo TEXT NOT NULL
                     );";
                 await command.ExecuteNonQueryAsync();
+
+                // ── Índice UNIQUE de SKU solo entre productos activos ─────────
+                // Las bases instaladas tienen el índice sin filtro: los productos eliminados
+                // seguían ocupando su SKU. Se reemplaza por el índice parcial del modelo.
+                var indicesUnicosSinFiltro = new List<string>();
+                command.CommandText = "PRAGMA index_list(Productos);"; // seq, name, unique, origin, partial
+                using (var r = await command.ExecuteReaderAsync())
+                    while (await r.ReadAsync())
+                        if (r.GetInt64(2) == 1 && r.GetString(3) == "c" && r.GetInt64(4) == 0)
+                            indicesUnicosSinFiltro.Add(r.GetString(1));
+
+                foreach (var indice in indicesUnicosSinFiltro)
+                {
+                    command.CommandText = $"PRAGMA index_info(\"{indice}\");"; // seqno, cid, name
+                    var columnas = new List<string>();
+                    using (var r = await command.ExecuteReaderAsync())
+                        while (await r.ReadAsync())
+                            columnas.Add(r.GetString(2));
+
+                    if (columnas.Count == 1 && string.Equals(columnas[0], "SKU", StringComparison.OrdinalIgnoreCase))
+                    {
+                        command.CommandText = $"DROP INDEX \"{indice}\";";
+                        await command.ExecuteNonQueryAsync();
+                    }
+                }
+
+                // Las bases más viejas no tenían ningún índice sobre SKU y pueden tener repetidos
+                // entre activos: en ese caso se sigue sin índice (como antes) y la app arranca igual.
+                try
+                {
+                    command.CommandText = "CREATE UNIQUE INDEX IF NOT EXISTS \"IX_Productos_SKU\" ON \"Productos\" (\"SKU\") WHERE \"IsDeleted\" = 0;";
+                    await command.ExecuteNonQueryAsync();
+                }
+                catch (SqliteException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DB] No se pudo crear IX_Productos_SKU (¿SKUs repetidos?): {ex.Message}");
+                }
             }
 
             if (wasClosed) await connection.CloseAsync();

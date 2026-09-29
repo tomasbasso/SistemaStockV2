@@ -49,13 +49,9 @@
                     <input type="text" value="@searchRot" @oninput="OnSearchRotChange" placeholder="Buscar producto..."
                            class="w-full md:w-56 bg-black/20 border border-white/10 rounded-xl pl-10 pr-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--color-primary)]" />
                 </div>
-                <select @onchange="OnCategoriaChange" class="bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--color-primary)]">
-                    <option value="">Todas las categorías</option>
-                    @foreach (var cat in categorias)
-                    {
-                        <option value="@cat.Id">@cat.Name</option>
-                    }
-                </select>
+                <AppSelect @bind-Value="filtroCategoria" @bind-Value:after="LoadRotaciones" Placeholder="Todas las categorías"
+                           Items="@(new[] { ((Guid?)null, "Todas las categorías") }.Concat(categorias.Select(cat => ((Guid?)cat.Id, cat.Name))))"
+                           class="bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--color-primary)]" />
                 <label class="inline-flex items-center gap-2 text-sm text-gray-300 bg-black/20 border border-white/10 rounded-xl px-3 py-2">
                     <input type="checkbox" checked="@soloBaja" @onchange="OnSoloBajaChange" class="accent-[var(--color-primary)]" />
                     Solo baja rotación
@@ -99,6 +95,7 @@
                                 "Alta" => "bg-green-500/15 text-green-300",
                                 "Media" => "bg-blue-500/15 text-blue-300",
                                 "Baja" => "bg-yellow-500/15 text-yellow-300",
+                                "Agotado" => "bg-orange-500/15 text-orange-300",
                                 _ => "bg-red-500/15 text-red-300"
                             };
                             <tr class="hover:bg-white/5 transition-colors">
@@ -231,15 +228,6 @@
         totalRotaciones = rotaciones.Count;
         currentPage = 1;
         StateHasChanged();
-    }
-
-    private async Task OnCategoriaChange(ChangeEventArgs e)
-    {
-        if (Guid.TryParse(e.Value?.ToString(), out var catId))
-            filtroCategoria = catId;
-        else
-            filtroCategoria = null;
-        await LoadRotaciones();
     }
 
     private Task OnPageChanged(int page)

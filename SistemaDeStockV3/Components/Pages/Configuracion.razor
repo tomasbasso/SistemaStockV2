@@ -474,8 +474,10 @@
 
     private void LoadBackupState()
     {
-        selectedFolder = Backup.GetConfiguredFolder() ?? string.Empty;
-        selectedFolderDisplay = string.IsNullOrWhiteSpace(selectedFolder) ? "Sin carpeta seleccionada" : selectedFolder;
+        selectedFolder = Backup.GetConfiguredFolder();
+        selectedFolderDisplay = selectedFolder == Backup.CarpetaPredeterminada
+            ? $"{selectedFolder} (predeterminada)"
+            : selectedFolder;
 
         lastBackupUtc = Backup.GetLastBackupUtc();
         lastBackupText = lastBackupUtc.HasValue
@@ -562,13 +564,15 @@
 
         if (result.Success)
         {
-            alertMessage = "Backup restaurado correctamente. La aplicación se cerrará en 3 segundos para aplicar los cambios en memoria.";
+            alertMessage = $"{result.Message} La aplicación se cerrará en 5 segundos: al abrirla de nuevo vas a ver los datos restaurados.";
             alertCss = "mt-2 p-3 rounded-lg bg-[var(--color-success)]/15 border border-[var(--color-success)]/30 text-[var(--color-success-foreground)] flex items-center gap-2";
             alertIcon = "bi bi-check-circle-fill";
             Notifications.Success("Datos restaurados. Cerrando la aplicación...");
             StateHasChanged();
-            await Task.Delay(3000);
+            // isRestoring sigue en true: los botones quedan deshabilitados hasta el cierre
+            await Task.Delay(5000);
             Application.Current?.Quit();
+            return;
         }
         else
         {

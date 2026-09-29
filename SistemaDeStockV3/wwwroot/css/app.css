@@ -101,6 +101,7 @@
 
 /* ── Dark Mode Nativo (Punto 2) ──────────────────────────── */
 :root.dark {
+  color-scheme: dark;
   --color-bg: #0B0F19;
   --color-surface: #111827;
   --color-card: #111827;
@@ -123,6 +124,7 @@
 
 /* ── Base ────────────────────────────────────────────────── */
 html {
+    color-scheme: light;
     background-color: var(--color-bg);
 }
 

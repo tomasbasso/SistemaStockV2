@@ -12,25 +12,40 @@
                     Mostrando <span class="font-medium text-[var(--color-ink)]">@(((CurrentPage - 1) * PageSize) + 1)</span> a <span class="font-medium text-[var(--color-ink)]">@(Math.Min(CurrentPage * PageSize, TotalItems))</span> de <span class="font-medium text-[var(--color-ink)]">@TotalItems</span> resultados
                 </p>
             </div>
-            <div>
+            <div class="flex items-center gap-3">
                 <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                    <button @onclick="Previous" disabled="@(CurrentPage == 1)" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-[var(--color-muted)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
+                    <button @onclick="() => GoToPage(1)" disabled="@(CurrentPage == 1)" title="Primera página" class="relative inline-flex items-center rounded-l-md px-2 py-2 text-[var(--color-muted)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
+                        <span class="sr-only">Primera</span>
+                        <i class="bi bi-chevron-bar-left h-5 w-5"></i>
+                    </button>
+                    <button @onclick="Previous" disabled="@(CurrentPage == 1)" class="relative inline-flex items-center px-2 py-2 text-[var(--color-muted)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
                         <span class="sr-only">Anterior</span>
                         <i class="bi bi-chevron-left h-5 w-5"></i>
                     </button>
-                    
+
                     @* Simplified logic: show max 5 pages around current *@
                     @for (int i = Math.Max(1, CurrentPage - 2); i <= Math.Min(TotalPages, CurrentPage + 2); i++)
                     {
                         int pageNum = i;
                         <button @onclick="() => GoToPage(pageNum)" aria-current="@(pageNum == CurrentPage ? "page" : null)" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold @(pageNum == CurrentPage ? "bg-[var(--color-primary)] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]" : "text-[var(--color-text-soft)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 transition-colors")">@pageNum</button>
                     }
-                    
-                    <button @onclick="Next" disabled="@(CurrentPage == TotalPages)" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-[var(--color-muted)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
+
+                    <button @onclick="Next" disabled="@(CurrentPage == TotalPages)" class="relative inline-flex items-center px-2 py-2 text-[var(--color-muted)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
                         <span class="sr-only">Siguiente</span>
                         <i class="bi bi-chevron-right h-5 w-5"></i>
                     </button>
+                    <button @onclick="() => GoToPage(TotalPages)" disabled="@(CurrentPage == TotalPages)" title="Última página" class="relative inline-flex items-center rounded-r-md px-2 py-2 text-[var(--color-muted)] ring-1 ring-inset ring-[var(--color-line)] hover:bg-[var(--color-primary)]/5 focus:z-20 focus:outline-offset-0 disabled:opacity-50 transition-colors">
+                        <span class="sr-only">Última</span>
+                        <i class="bi bi-chevron-bar-right h-5 w-5"></i>
+                    </button>
                 </nav>
+
+                <div class="flex items-center gap-1.5">
+                    <input type="number" min="1" max="@TotalPages" value="@irAPaginaInput" @oninput="OnIrAPaginaInput" @onkeydown="OnIrAPaginaKeydown"
+                           placeholder="Ir a pág." title="Ir a página"
+                           class="w-20 bg-[var(--color-surface)] border border-[var(--color-line)] rounded-md px-2 py-1.5 text-sm text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]" />
+                    <button @onclick="IrAPagina" class="rounded-md border border-[var(--color-line)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-soft)] hover:bg-[var(--color-primary)]/5 transition-colors">Ir</button>
+                </div>
             </div>
         </div>
     </div>
@@ -69,5 +84,25 @@
             CurrentPage = page;
             await OnPageChanged.InvokeAsync(CurrentPage);
         }
+    }
+
+    private string irAPaginaInput = "";
+
+    private void OnIrAPaginaInput(ChangeEventArgs e)
+    {
+        irAPaginaInput = e.Value?.ToString() ?? "";
+    }
+
+    private async Task OnIrAPaginaKeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await IrAPagina();
+    }
+
+    private async Task IrAPagina()
+    {
+        if (int.TryParse(irAPaginaInput, out var page))
+            await GoToPage(page);
+        irAPaginaInput = "";
     }
 }

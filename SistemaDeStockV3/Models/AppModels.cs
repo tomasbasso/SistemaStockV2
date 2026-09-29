@@ -26,7 +26,6 @@ namespace SistemaDeStockV3.Models
         [MaxLength(200, ErrorMessage = "El nombre no puede superar 200 caracteres.")]
         public string Name { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "El SKU es obligatorio.")]
         [MaxLength(50, ErrorMessage = "El SKU no puede superar 50 caracteres.")]
         public string SKU { get; set; } = string.Empty;
 

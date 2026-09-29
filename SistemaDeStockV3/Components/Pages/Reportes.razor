@@ -114,11 +114,8 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <!-- Filtro de Fecha -->
-                    <select @onchange="OnRangeChange" class="bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[var(--color-primary)] transition-all">
-                        <option value="all">Todo el historial</option>
-                        <option value="week">Última Semana</option>
-                        <option value="month">Último Mes</option>
-                    </select>
+                    <AppSelect @bind-Value="dateRange" @bind-Value:after="OnRangeChange" Items="@RangoItems"
+                               class="min-w-[11rem] bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[var(--color-primary)] transition-all" />
 
                     <!-- Búsqueda -->
                     <div class="relative w-64">
@@ -313,9 +310,15 @@
         await LoadCurrentPage();
     }
 
-    private async Task OnRangeChange(ChangeEventArgs e)
+    private static readonly (string, string)[] RangoItems =
     {
-        dateRange = e.Value?.ToString() ?? "all";
+        ("all", "Todo el historial"),
+        ("week", "Última Semana"),
+        ("month", "Último Mes"),
+    };
+
+    private async Task OnRangeChange()
+    {
         currentPage = 1;
         await LoadCurrentPage();
     }

@@ -185,13 +185,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1">Categoría *</label>
-                <InputSelect @bind-Value="editingItem.CategoryId" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]">
-                    <option value="@Guid.Empty" class="bg-[#161b27] text-white">-- Seleccionar --</option>
-                    @foreach (var c in categorias)
-                    {
-                        <option value="@c.Id" class="bg-[#161b27] text-white">@c.Name</option>
-                    }
-                </InputSelect>
+                <AppSelect @bind-Value="editingItem.CategoryId" Placeholder="-- Seleccionar --" Items="@categorias.Select(c => (c.Id, c.Name))" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
                 <ValidationMessage For="() => editingItem.CategoryId" class="text-[var(--color-danger)] text-xs mt-1 block" />
             </div>
 
@@ -270,13 +264,9 @@
         <!-- Filtro por categoría -->
         <div>
             <label class="block text-sm font-medium text-gray-300 mb-1">Filtrar por Categoría</label>
-            <select @onchange="OnDeleteMultipleCategoriaChange" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)]">
-                <option value="">— Todas las categorías —</option>
-                @foreach (var c in categorias)
-                {
-                    <option value="@c.Id">@c.Name</option>
-                }
-            </select>
+            <AppSelect @bind-Value="deleteMultipleCategoriaFiltro" @bind-Value:after="OnDeleteMultipleCategoriaChange" Placeholder="— Todas las categorías —"
+                       Items="@(new[] { (Guid.Empty, "— Todas las categorías —") }.Concat(categorias.Select(c => (c.Id, c.Name))))"
+                       class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)]" />
         </div>
 
         <!-- Búsqueda por nombre -->
@@ -354,13 +344,9 @@
         <!-- Filtro por categoría -->
         <div>
             <label class="block text-sm font-medium text-gray-300 mb-1">Filtrar por Categoría</label>
-            <select @onchange="OnAjusteCategoriaChange" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)]">
-                <option value="">— Todas las categorías —</option>
-                @foreach (var c in categorias)
-                {
-                    <option value="@c.Id">@c.Name</option>
-                }
-            </select>
+            <AppSelect @bind-Value="ajusteCategoriaFiltro" @bind-Value:after="OnAjusteCategoriaChange" Placeholder="— Todas las categorías —"
+                       Items="@(new[] { (Guid.Empty, "— Todas las categorías —") }.Concat(categorias.Select(c => (c.Id, c.Name))))"
+                       class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)]" />
         </div>
 
         <!-- Búsqueda por nombre -->
@@ -488,13 +474,7 @@
             <!-- Categoría por defecto -->
             <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1.5">Categoría para productos nuevos <span class="text-[var(--color-danger)]">*</span></label>
-                <select @bind="importCategoriaId" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]">
-                    <option value="">— Seleccionar categoría —</option>
-                    @foreach (var c in categorias)
-                    {
-                        <option value="@c.Id">@c.Name</option>
-                    }
-                </select>
+                <AppSelect @bind-Value="importCategoriaId" Placeholder="— Seleccionar categoría —" Items="@categorias.Select(c => (c.Id.ToString(), c.Name))" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--color-primary)]" />
                 <p class="text-xs text-gray-500 mt-1">Los productos importados quedarán en esta categoría. Podés cambiarla después.</p>
             </div>
 
@@ -899,12 +879,8 @@
         isAjusteModalOpen = true;
     }
 
-    private void OnAjusteCategoriaChange(ChangeEventArgs e)
+    private void OnAjusteCategoriaChange()
     {
-        if (Guid.TryParse(e.Value?.ToString(), out var id))
-            ajusteCategoriaFiltro = id;
-        else
-            ajusteCategoriaFiltro = Guid.Empty;
         // Auto-select all products of that category
         ajusteSeleccionados = ajusteProductosFiltrados.Select(p => p.Id).ToHashSet();
     }
@@ -951,13 +927,8 @@
         isDeleteMultipleModalOpen = true;
     }
 
-    private void OnDeleteMultipleCategoriaChange(ChangeEventArgs e)
+    private void OnDeleteMultipleCategoriaChange()
     {
-        if (Guid.TryParse(e.Value?.ToString(), out var id))
-            deleteMultipleCategoriaFiltro = id;
-        else
-            deleteMultipleCategoriaFiltro = Guid.Empty;
-        
         deleteMultipleSeleccionados = deleteMultipleProductosFiltrados.Select(p => p.Id).ToHashSet();
     }
 

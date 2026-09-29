@@ -56,6 +56,24 @@ public class DataService_ClientesTests
     }
 
     [Fact]
+    public async Task DeleteClienteAsync_ConDeudaPendiente_Lanza_Y_ConservaClienteYDeuda()
+    {
+        // Regla de negocio: no se puede eliminar un cliente que debe plata; si no,
+        // la deuda desaparece de su cuenta corriente y del total del dashboard.
+        var (svc, _) = TestDbHelper.Create(nameof(DeleteClienteAsync_ConDeudaPendiente_Lanza_Y_ConservaClienteYDeuda));
+        var cliente = new Cliente { Name = "Deudor" };
+        await svc.SaveClienteAsync(cliente);
+        var cc = await svc.GetCuentaCorrienteAsync(cliente.Id);
+        cc!.Balance = 500m;
+        await svc.SaveCuentaCorrienteAsync(cc);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.DeleteClienteAsync(cliente.Id));
+
+        Assert.Single(await svc.GetClientesAsync());
+        Assert.Equal(500m, (await svc.GetCuentaCorrienteAsync(cliente.Id))!.Balance);
+    }
+
+    [Fact]
     public async Task SaveCuentaCorrienteAsync_ActualizaBalance_Correctamente()
     {
         var (svc, _) = TestDbHelper.Create(nameof(SaveCuentaCorrienteAsync_ActualizaBalance_Correctamente));

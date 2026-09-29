@@ -36,6 +36,17 @@ public class DashboardVisualContractTests
         Assert.Contains("dashboard-highlight-card", home);
     }
 
+    [Fact]
+    public void HomeDashboard_GraficoDeIngresos_UsaDatosReales_NoValoresFijos()
+    {
+        // Regresión: "Evolución de Ingresos" mostraba una serie inventada
+        // (12500, 15300, ...) apenas había una venta en el día.
+        var home = ReadRepoFile("SistemaDeStockV3", "Components", "Pages", "Home.razor");
+
+        Assert.DoesNotMatch(@"ChartData\s*=\s*new\(\)\s*\{\s*\d", home);
+        Assert.Contains("GetIngresosPorDiaAsync", home);
+    }
+
     private static string ReadRepoFile(params string[] segments)
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));

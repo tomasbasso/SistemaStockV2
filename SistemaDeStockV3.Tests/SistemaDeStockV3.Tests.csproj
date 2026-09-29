@@ -15,6 +15,7 @@
     <Compile Include="..\SistemaDeStockV3\Data\StockDbContext.cs" />
     <Compile Include="..\SistemaDeStockV3\Services\DataService.cs" />
     <Compile Include="..\SistemaDeStockV3\Services\PdfService.cs" />
+    <Compile Include="..\SistemaDeStockV3\Services\RespaldoSqlite.cs" />
   </ItemGroup>
 
   <ItemGroup>

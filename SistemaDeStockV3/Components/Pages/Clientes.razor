@@ -172,14 +172,9 @@
             </div>
    <div>
     <label class="block text-sm font-medium text-gray-300 mb-1">Condición IVA *</label>
-    <select value="@((int)editingItem.CondicionIva)"
-            @onchange="e => { if (int.TryParse(e.Value?.ToString(), out int v)) { editingItem.CondicionIva = (CondicionIva)v; StateHasChanged(); } }"
-            class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]">
-        @foreach (CondicionIva c in Enum.GetValues(typeof(CondicionIva)))
-        {
-            <option value="@((int)c)">@GetCondicionLabel(c)</option>
-        }
-    </select>
+    <AppSelect @bind-Value="editingItem.CondicionIva"
+               Items="@(Enum.GetValues<CondicionIva>().Select(c => (c, GetCondicionLabel(c))))"
+               class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]" />
 </div>
         </div>
         <div class="mt-8 flex justify-end gap-3">
@@ -213,11 +208,18 @@
         </div>
         <p class="text-gray-300 mb-1">¿Estás seguro que querés eliminar al cliente</p>
         <p class="text-white font-bold text-lg">@clienteToDelete?.Name</p>
-        <p class="text-xs text-gray-500 mt-2">Esta acción no se puede deshacer. Se eliminará también su cuenta corriente.</p>
+        @if (DeudaClienteAEliminar > 0)
+        {
+            <p class="text-sm text-[var(--color-danger)] mt-3">Tiene una deuda de <strong>@DeudaClienteAEliminar.ToString("C")</strong>. Registrá el pago antes de eliminarlo.</p>
+        }
+        else
+        {
+            <p class="text-xs text-gray-500 mt-2">Esta acción no se puede deshacer. Se eliminará también su cuenta corriente.</p>
+        }
     </div>
     <div class="mt-6 flex justify-end gap-3">
         <button @onclick="() => isConfirmDeleteOpen = false" class="btn btn-ghost">Cancelar</button>
-        <button @onclick="DeleteConfirmed" class="btn btn-danger flex items-center gap-2">
+        <button @onclick="DeleteConfirmed" disabled="@(DeudaClienteAEliminar > 0)" class="btn btn-danger flex items-center gap-2">
             <i class="bi bi-trash"></i> Eliminar
         </button>
     </div>
@@ -294,6 +296,9 @@
     // Confirmación eliminar
     private bool isConfirmDeleteOpen = false;
     private Cliente? clienteToDelete;
+    private decimal DeudaClienteAEliminar => clienteToDelete == null
+        ? 0
+        : cuentas.FirstOrDefault(x => x.ClienteId == clienteToDelete.Id)?.Balance ?? 0;
     
     private bool isSettleModalOpen = false;
     private Cliente? settleClient;
@@ -441,6 +446,7 @@
         catch (Exception ex)
         {
             Notifications.Error($"Error al eliminar: {ex.Message}");
+            isConfirmDeleteOpen = false;
         }
     }
 

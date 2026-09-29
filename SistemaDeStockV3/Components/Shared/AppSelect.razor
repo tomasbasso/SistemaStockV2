@@ -1,0 +1,129 @@
+@typeparam TValue
+@inherits InputBase<TValue>
+
+<div class="relative">
+    <button type="button" @onclick="Toggle"
+            class="@ButtonClass">
+        <span class="truncate @(SelectedLabel is null ? "text-gray-400" : "text-white")">@(SelectedLabel ?? Placeholder)</span>
+        <i class="bi bi-chevron-down text-xs text-gray-400 flex-shrink-0 transition-transform @(isOpen ? "rotate-180" : "")"></i>
+    </button>
+
+    @if (isOpen)
+    {
+        <div class="fixed inset-0 z-40" @onclick="Close"></div>
+        <div class="absolute z-50 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#161b27] shadow-2xl @(Searchable ? "pb-1" : "py-1")">
+            @if (Searchable)
+            {
+                @* form apunta a un id inexistente: el buscador queda fuera de cualquier EditForm y Enter no lo envía *@
+                <div class="sticky top-0 bg-[#161b27] p-2 border-b border-white/10">
+                    <input @ref="searchInput" type="text" form="appselect-sin-form" autocomplete="off"
+                           value="@search" @oninput="e => search = e.Value?.ToString() ?? string.Empty" @onkeydown="OnSearchKeyDown"
+                           placeholder="Buscar..."
+                           class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-[var(--color-primary)]" />
+                </div>
+            }
+            @foreach (var item in VisibleItems)
+            {
+                var isSelected = EqualityComparer<TValue>.Default.Equals(item.Value, CurrentValue);
+                <div @key="item.Value" @onclick="() => Select(item.Value)"
+                     class="px-4 py-2 text-sm cursor-pointer transition-colors @(isSelected ? "bg-[var(--color-primary)]/20 text-[var(--color-primary)]" : "text-white hover:bg-white/10")">
+                    @item.Label
+                </div>
+            }
+            @if (Searchable && VisibleItems.Count == 0)
+            {
+                <div class="px-4 py-2 text-sm text-gray-500">Sin resultados</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<(TValue Value, string Label)> Items { get; set; } = Enumerable.Empty<(TValue, string)>();
+    [Parameter] public string Placeholder { get; set; } = "-- Seleccionar --";
+
+    /// <summary>
+    /// Agrega un buscador arriba de la lista (sin distinguir mayúsculas ni tildes); Enter elige el
+    /// primer resultado. Para listas largas, donde el select nativo permitía escribir para saltar.
+    /// </summary>
+    [Parameter] public bool Searchable { get; set; }
+
+    private bool isOpen;
+    private string search = string.Empty;
+    private ElementReference searchInput;
+    private bool focusSearch;
+
+    private List<(TValue Value, string Label)> VisibleItems =>
+        string.IsNullOrWhiteSpace(search)
+            ? Items.ToList()
+            : Items.Where(i => System.Globalization.CultureInfo.InvariantCulture.CompareInfo.IndexOf(
+                    i.Label, search.Trim(),
+                    System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0)
+                .ToList();
+
+    private string? SelectedLabel
+    {
+        get
+        {
+            foreach (var item in Items)
+            {
+                if (EqualityComparer<TValue>.Default.Equals(item.Value, CurrentValue))
+                    return item.Label;
+            }
+            return null;
+        }
+    }
+
+    private string ExtraClass =>
+        AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("class", out var c) ? c?.ToString() ?? "" : "";
+
+    private string ButtonClass => $"flex items-center justify-between gap-2 text-left {ExtraClass}";
+
+    private void Toggle()
+    {
+        isOpen = !isOpen;
+        if (isOpen)
+        {
+            search = string.Empty;
+            focusSearch = Searchable;
+        }
+    }
+
+    private void Close() => isOpen = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusSearch)
+        {
+            focusSearch = false;
+            try { await searchInput.FocusAsync(); } catch { }
+        }
+    }
+
+    private void OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            Close();
+        }
+        else if (e.Key == "Enter")
+        {
+            var visibles = VisibleItems;
+            if (visibles.Count > 0)
+                Select(visibles[0].Value);
+        }
+    }
+
+    private void Select(TValue value)
+    {
+        CurrentValue = value;
+        isOpen = false;
+    }
+
+    protected override bool TryParseValueFromString(string? value, out TValue result, out string validationErrorMessage)
+    {
+        result = default!;
+        validationErrorMessage = "Valor no soportado.";
+        return false;
+    }
+}

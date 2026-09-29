@@ -221,24 +221,34 @@ namespace SistemaDeStockV3.Services
             using var workbook = new ClosedXML.Excel.XLWorkbook(stream);
             var ws = workbook.Worksheets.First();
 
-            var firstCell = ws.Cell(1, 1).GetValue<string>()?.Trim().ToLower() ?? "";
+            var firstCell = QuitarAcentos(ws.Cell(1, 1).GetValue<string>()?.Trim().ToLower() ?? "");
             bool esEncabezado = firstCell.Contains("sku") || firstCell.Contains("cod") || firstCell.Contains("nombre") || firstCell.Contains("producto");
             int startRow = esEncabezado ? 2 : 1;
 
             int colSku = 1, colNombre = 2, colPrecio = 3;
+            int? colStock = null; // opcional: sin columna, los productos nuevos entran con stock 0
             if (startRow == 2)
             {
                 for (int c = 1; c <= ws.LastColumnUsed().ColumnNumber(); c++)
                 {
-                    var h = ws.Cell(1, c).GetValue<string>()?.Trim().ToLower() ?? "";
+                    var h = QuitarAcentos(ws.Cell(1, c).GetValue<string>()?.Trim().ToLower() ?? "");
                     if (h.Contains("sku") || h.Contains("cod")) colSku = c;
                     else if (h.Contains("nombre") || h.Contains("producto") || h.Contains("descrip")) colNombre = c;
                     else if (h.Contains("precio") || h.Contains("price") || h.Contains("costo") || h.Contains("valor")) colPrecio = c;
+                    else if ((h.Contains("stock") && !h.Contains("min")) || h.Contains("cantidad") || h.Contains("existencia")) colStock = c;
                 }
             }
 
             var lastRow = ws.LastRowUsed()?.RowNumber() ?? 0;
             var skusExistentes = await _db.Productos.ToDictionaryAsync(p => (p.SKU ?? "").ToLower(), p => p);
+            // Filas sin SKU: el producto se identifica por nombre
+            var porNombre = skusExistentes.Values
+                .GroupBy(p => NormalizarNombre(p.Name))
+                .ToDictionary(g => g.Key, g => g.ToList());
+            // Incluye eliminados: el SKU automático no debe repetir ninguno
+            var skusUsados = (await _db.Productos.IgnoreQueryFilters().Select(p => p.SKU).ToListAsync())
+                .Select(s => (s ?? "").ToLowerInvariant())
+                .ToHashSet();
 
             for (int row = startRow; row <= lastRow; row++)
             {
@@ -249,12 +259,26 @@ namespace SistemaDeStockV3.Services
                     var rawPrecio = ws.Cell(row, colPrecio).GetValue<string>() ?? "";
                     var rawStr = rawPrecio.Trim().Replace("$", "").Replace(" ", "");
                     string precioStr;
-                    if (rawStr.Contains(","))
-                        precioStr = rawStr.Replace(".", "").Replace(",", ".");
+                    if (rawStr.Contains(",") && rawStr.Contains("."))
+                        // El separador que aparece último es el decimal:
+                        // "1.234,56" (AR) vs "1,234.56" (US)
+                        precioStr = rawStr.LastIndexOf(',') > rawStr.LastIndexOf('.')
+                            ? rawStr.Replace(".", "").Replace(",", ".")
+                            : rawStr.Replace(",", "");
+                    else if (rawStr.Contains(","))
+                        precioStr = rawStr.Replace(",", ".");
                     else
                         precioStr = rawStr;
 
-                    if (string.IsNullOrWhiteSpace(nombre)) continue;
+                    if (string.IsNullOrWhiteSpace(nombre))
+                    {
+                        // Fila totalmente vacía: se ignora. Fila con datos pero sin
+                        // nombre: se reporta para que el usuario no pierda filas.
+                        if (string.IsNullOrWhiteSpace(sku) && string.IsNullOrWhiteSpace(rawStr))
+                            continue;
+                        errores.Add($"Fila {row}: sin nombre");
+                        continue;
+                    }
 
                     if (!decimal.TryParse(precioStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal precio) || precio < 0)
                     {
@@ -262,12 +286,43 @@ namespace SistemaDeStockV3.Services
                         continue;
                     }
 
-                    if (string.IsNullOrWhiteSpace(sku))
-                        sku = $"IMP-{row:D4}";
-
-                    if (skusExistentes.TryGetValue(sku.ToLower(), out var existing))
+                    int stock = 0;
+                    var rawStock = colStock.HasValue ? ws.Cell(row, colStock.Value).GetValue<string>()?.Trim() ?? "" : "";
+                    if (rawStock != "" && (!int.TryParse(rawStock, NumberStyles.Integer, CultureInfo.InvariantCulture, out stock) || stock < 0))
                     {
-                        existing.Name = nombre;
+                        errores.Add($"Fila {row}: stock inválido '{rawStock}'");
+                        continue;
+                    }
+
+                    Producto? existing = null;
+                    bool porNombreSinSku = false;
+                    if (!string.IsNullOrWhiteSpace(sku))
+                    {
+                        skusExistentes.TryGetValue(sku.ToLower(), out existing);
+                    }
+                    else if (porNombre.TryGetValue(NormalizarNombre(nombre), out var mismoNombre))
+                    {
+                        // Sin SKU no se puede usar el número de fila para identificar el producto:
+                        // la fila 2 de otra lista es otro producto y se lo pisaba
+                        if (mismoNombre.Count > 1)
+                        {
+                            errores.Add($"Fila {row}: hay {mismoNombre.Count} productos llamados '{nombre}'; agregá el SKU para saber cuál actualizar");
+                            continue;
+                        }
+                        existing = mismoNombre[0];
+                        porNombreSinSku = true;
+                    }
+                    else
+                    {
+                        sku = GenerarSkuImportacion(row, skusUsados);
+                    }
+
+                    if (existing != null)
+                    {
+                        // Si se encontró por nombre, el nombre ya coincide: no se reescribe
+                        // (una lista en mayúsculas no debe renombrar el catálogo)
+                        if (!porNombreSinSku)
+                            existing.Name = nombre;
                         var precioAnterior = existing.Price;
                         existing.Price = precio;
                         
@@ -289,11 +344,19 @@ namespace SistemaDeStockV3.Services
                             PrecioCosto = 0,
                             Margen = 100m,
                             CategoryId = categoriaDefaultId,
-                            Stock = 5,
+                            Stock = stock,
                             StockMinimo = 0,
                             UnidadMedida = "u."
                         };
                         _db.Productos.Add(nuevo);
+                        // Registrarlo para que otra fila del mismo archivo con el
+                        // mismo SKU (o el mismo nombre, sin SKU) actualice en vez de duplicar
+                        skusExistentes[sku.ToLower()] = nuevo;
+                        skusUsados.Add(sku.ToLowerInvariant());
+                        var clave = NormalizarNombre(nombre);
+                        if (!porNombre.TryGetValue(clave, out var conEseNombre))
+                            porNombre[clave] = conEseNombre = new List<Producto>();
+                        conEseNombre.Add(nuevo);
                         importados++;
                     }
                 }
@@ -321,9 +384,8 @@ namespace SistemaDeStockV3.Services
 
         public async Task<Presupuesto> SavePresupuestoAsync(Presupuesto presupuesto, List<PresupuestoDetalle> detalles)
         {
-            int maxNum = await _db.Presupuestos.AnyAsync()
-                ? await _db.Presupuestos.MaxAsync(p => p.NumeroPresupuesto)
-                : 0;
+            // IgnoreQueryFilters: los presupuestos eliminados conservan su número en el índice UNIQUE
+            int maxNum = await _db.Presupuestos.IgnoreQueryFilters().MaxAsync(p => (int?)p.NumeroPresupuesto) ?? 0;
             presupuesto.NumeroPresupuesto = maxNum + 1;
             presupuesto.Total = detalles.Sum(d => d.UnitPrice * d.Quantity);
 
@@ -374,7 +436,30 @@ namespace SistemaDeStockV3.Services
 
         public async Task<bool> ExisteProductoPorSKUAsync(string sku, Guid excludeId)
         {
-            return await _db.Productos.AnyAsync(p => p.SKU == sku && p.Id != excludeId);
+            var skuLower = sku.ToLower();
+            return await _db.Productos.AnyAsync(p => p.SKU != null && p.SKU.ToLower() == skuLower && p.Id != excludeId);
+        }
+
+        /// <summary>Clave para comparar nombres de productos: sin tildes, mayúsculas ni espacios de más.</summary>
+        private static string NormalizarNombre(string nombre)
+            => string.Join(' ', QuitarAcentos(nombre).ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        /// <summary>IMP-{fila} si está libre; si no, el siguiente número libre.</summary>
+        private static string GenerarSkuImportacion(int fila, HashSet<string> usados)
+        {
+            var n = fila;
+            while (usados.Contains($"imp-{n:D4}")) n++;
+            return $"IMP-{n:D4}";
+        }
+
+        private static string QuitarAcentos(string texto)
+        {
+            var formD = texto.Normalize(System.Text.NormalizationForm.FormD);
+            var sb = new System.Text.StringBuilder(formD.Length);
+            foreach (var ch in formD)
+                if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                    sb.Append(ch);
+            return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
         }
 
         // ──────────────────────────────────────────────────────────────────────────────────
@@ -414,8 +499,11 @@ namespace SistemaDeStockV3.Services
             var entity = await _db.Clientes.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == id);
             if (entity != null)
             {
-                entity.IsDeleted = true;
                 var cc = await _db.CuentasCorrientes.FirstOrDefaultAsync(x => x.ClienteId == id);
+                if (cc != null && cc.Balance > 0)
+                    throw new InvalidOperationException($"No se puede eliminar a '{entity.Name}': tiene una deuda de {cc.Balance:C}. Registrá el pago antes de eliminarlo.");
+
+                entity.IsDeleted = true;
                 if (cc != null) _db.CuentasCorrientes.Remove(cc);
 
                 await _db.SaveChangesAsync();
@@ -459,13 +547,14 @@ namespace SistemaDeStockV3.Services
 
         public async Task<(decimal Ingresos, decimal Egresos)> GetTotalesMovimientosAsync()
         {
-            var ingresos = await _db.MovimientosFinancieros
-                .Where(m => m.Type == TipoMovimiento.Ingreso)
-                .SumAsync(m => m.Amount);
+            // Amount es decimal-como-TEXT: SUM en SQL coerciona a REAL y con montos
+            // grandes devuelve notación científica que rompe la conversión. Sumar en memoria.
+            var montos = await _db.MovimientosFinancieros
+                .Select(m => new { m.Type, m.Amount })
+                .ToListAsync();
 
-            var egresos = await _db.MovimientosFinancieros
-                .Where(m => m.Type == TipoMovimiento.Egreso)
-                .SumAsync(m => m.Amount);
+            var ingresos = montos.Where(m => m.Type == TipoMovimiento.Ingreso).Sum(m => m.Amount);
+            var egresos = montos.Where(m => m.Type == TipoMovimiento.Egreso).Sum(m => m.Amount);
 
             return (ingresos, egresos);
         }
@@ -507,6 +596,30 @@ namespace SistemaDeStockV3.Services
                 .ToListAsync();
 
             return (totalVentas, cantidadVentas, totalDeuda, valorInventario, totalProductos, bajoStock, ultimosMovimientos);
+        }
+
+        /// <summary>
+        /// Ingresos de los últimos <paramref name="dias"/> días (hoy incluido), del más viejo al más
+        /// nuevo. Los días sin ingresos vienen en cero para que el gráfico no tenga huecos.
+        /// </summary>
+        public async Task<List<(DateTime Dia, decimal Total)>> GetIngresosPorDiaAsync(int dias = 7)
+        {
+            var desde = DateTime.Today.AddDays(-(dias - 1));
+
+            // Amount es decimal-como-TEXT: materializar antes de sumar
+            var ingresos = await _db.MovimientosFinancieros
+                .Where(m => m.Type == TipoMovimiento.Ingreso && m.Date >= desde)
+                .Select(m => new { m.Date, m.Amount })
+                .ToListAsync();
+
+            var porDia = ingresos
+                .GroupBy(m => m.Date.Date)
+                .ToDictionary(g => g.Key, g => g.Sum(m => m.Amount));
+
+            return Enumerable.Range(0, dias)
+                .Select(i => desde.AddDays(i))
+                .Select(dia => (dia, porDia.TryGetValue(dia, out var total) ? total : 0m))
+                .ToList();
         }
 
         public async Task<List<MovimientoFinanciero>> GetMovimientosPaginadosAsync(int page, int pageSize, string searchTerm = "")
@@ -667,9 +780,8 @@ namespace SistemaDeStockV3.Services
                     producto!.Stock -= d.Quantity;
                 }
 
-                int maxNumero = await _db.Ventas.AnyAsync()
-                    ? await _db.Ventas.MaxAsync(v => v.NumeroVenta)
-                    : 0;
+                // IgnoreQueryFilters: las ventas anuladas conservan su número en el índice UNIQUE
+                int maxNumero = await _db.Ventas.IgnoreQueryFilters().MaxAsync(v => (int?)v.NumeroVenta) ?? 0;
                 venta.NumeroVenta = maxNumero + 1;
 
                 _db.Ventas.Add(venta);
@@ -705,6 +817,9 @@ namespace SistemaDeStockV3.Services
             catch
             {
                 await transaction.RollbackAsync();
+                // El rollback no toca el change tracker: sin esto, los cambios de la operación
+                // fallida quedan pendientes y se guardan (o vuelven a fallar) en el próximo SaveChanges
+                _db.ChangeTracker.Clear();
                 throw;
             }
         }
@@ -742,7 +857,22 @@ namespace SistemaDeStockV3.Services
                     var cc = await _db.CuentasCorrientes
                         .FirstOrDefaultAsync(x => x.ClienteId == venta.ClienteId.Value);
                     if (cc != null)
+                    {
                         cc.Balance -= venta.Total;
+                        // La parte de la venta que el cliente ya había pagado se
+                        // devuelve como egreso de caja en vez de dejar saldo negativo
+                        if (cc.Balance < 0)
+                        {
+                            _db.MovimientosFinancieros.Add(new MovimientoFinanciero
+                            {
+                                Type = TipoMovimiento.Egreso,
+                                Amount = -cc.Balance,
+                                Description = $"Devolución por anulación venta #{venta.NumeroVenta}",
+                                VentaId = venta.Id
+                            });
+                            cc.Balance = 0;
+                        }
+                    }
                 }
 
                 venta.IsDeleted = true;
@@ -753,6 +883,9 @@ namespace SistemaDeStockV3.Services
             catch
             {
                 await transaction.RollbackAsync();
+                // El rollback no toca el change tracker: sin esto, los cambios de la operación
+                // fallida quedan pendientes y se guardan (o vuelven a fallar) en el próximo SaveChanges
+                _db.ChangeTracker.Clear();
                 throw;
             }
         }
@@ -787,6 +920,9 @@ namespace SistemaDeStockV3.Services
             catch
             {
                 await transaction.RollbackAsync();
+                // El rollback no toca el change tracker: sin esto, los cambios de la operación
+                // fallida quedan pendientes y se guardan (o vuelven a fallar) en el próximo SaveChanges
+                _db.ChangeTracker.Clear();
                 throw;
             }
         }
@@ -859,14 +995,16 @@ namespace SistemaDeStockV3.Services
                 if (ventas3 > ventasPrev3) tendencia = "↗";
                 else if (ventas3 < ventasPrev3) tendencia = "↘";
 
-                string estado = "Sin rotación";
-                if (rotacion == 0) estado = "Sin rotación";
+                string estado;
+                if (stock == 0 && ventas12 > 0) estado = "Agotado";
+                else if (rotacion == 0) estado = "Sin rotación";
                 else if (rotacion < umbralBaja) estado = "Baja";
                 else if (rotacion < umbralMedia) estado = "Media";
                 else estado = "Alta";
 
                 string accion = estado switch
                 {
+                    "Agotado" => "Reponer stock",
                     "Sin rotación" => "Descontinuar / limpiar stock",
                     "Baja" => "Promocionar o ajustar precio",
                     "Media" => "Monitorear",

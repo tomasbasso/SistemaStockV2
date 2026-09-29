@@ -122,13 +122,9 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
                 <label class="block text-xs font-medium text-gray-400 mb-1.5">Cliente <span class="text-gray-600">(Opcional)</span></label>
-                <InputSelect @bind-Value="nuevoPresupuesto.ClienteId" class="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--color-primary)]">
-                    <option value="">— Sin cliente —</option>
-                    @foreach (var c in clientes)
-                    {
-                        <option value="@c.Id">@c.Name</option>
-                    }
-                </InputSelect>
+                <AppSelect @bind-Value="nuevoPresupuesto.ClienteId" Searchable="true"
+                           Items="@ClienteItems"
+                           class="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--color-primary)]" />
                 <ValidationMessage For="() => nuevoPresupuesto.ClienteId" class="text-[var(--color-danger)] text-xs mt-1" />
             </div>
             <div>
@@ -262,6 +258,8 @@
     private List<Producto> productos = new();
     private List<Cliente> clientes = new();
     private bool isLoading = true;
+    private IEnumerable<(Guid?, string)> ClienteItems =>
+        clientes.Select(c => ((Guid?)c.Id, c.Name)).Prepend(((Guid?)null, "— Sin cliente —"));
 
     // Modal nuevo
     private bool isModalOpen = false;

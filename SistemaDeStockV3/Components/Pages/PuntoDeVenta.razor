@@ -168,13 +168,9 @@
         <!-- Cliente Selection -->
         <div>
             <label class="block text-sm font-medium text-gray-300 mb-2">Cliente (Opcional)</label>
-            <select @bind="selectedClienteId" @bind:after="OnClienteChanged" class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] transition-all">
-                <option value="@Guid.Empty" class="bg-[#161b27] text-white">Consumidor Final</option>
-                @foreach(var c in clientes)
-                {
-                    <option value="@c.Id" class="bg-[#161b27] text-white">@c.Name</option>
-                }
-            </select>
+            <AppSelect @bind-Value="selectedClienteId" @bind-Value:after="OnClienteChanged" Searchable="true"
+                       Items="@ClienteItems"
+                       class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] transition-all" />
         </div>
 
         <!-- Forma de Pago -->
@@ -316,6 +312,8 @@
     
     private Guid selectedClienteId = Guid.Empty;
     private bool isFiado = false;
+    private IEnumerable<(Guid, string)> ClienteItems =>
+        clientes.Select(c => (c.Id, c.Name)).Prepend((Guid.Empty, "Consumidor Final"));
 
     // Descuento
     private string discountType = "%";
@@ -549,6 +547,11 @@
         {
             isCheckoutModalOpen = false;
             Notifications.Error($"Error al procesar la venta: {ex.Message}");
+            // El catálogo en memoria pudo quedar con el stock de la venta fallida:
+            // recargar y apuntar el carrito a los productos con el stock real
+            await LoadData();
+            foreach (var item in cartItems)
+                item.Producto = productos.FirstOrDefault(p => p.Id == item.Producto.Id) ?? item.Producto;
         }
         finally
         {
